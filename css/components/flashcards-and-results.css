@@ -1,0 +1,92 @@
+.flashcard {
+    min-height: 270px;
+    display: grid;
+    place-items: center;
+    text-align: center;
+    padding: 30px;
+    cursor: pointer;
+    perspective: 800px
+}
+
+.flashcard-inner {
+    font: 27px var(--serif);
+    line-height: 1.5;
+    max-width: 600px
+}
+
+.flashcard-back {
+    color: var(--accent)
+}
+
+.flash-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin: 20px 0
+}
+
+.rate {
+    border: 1px solid var(--line);
+    background: #fffefa;
+    padding: 11px 19px;
+    border-radius: 9px;
+    font-size: 12px;
+    font-weight: 600
+}
+
+.rate.again {
+    color: #b7685e
+}
+
+.rate.hard {
+    color: #b28646
+}
+
+.rate.good {
+    color: #765ca5
+}
+
+.rate.easy {
+    color: #6b86a0
+}
+
+.result-score {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    margin: auto;
+    background: conic-gradient(#9479c6 var(--score), #ebe9e2 0);
+    position: relative
+}
+
+.result-score:before {
+    content: '';
+    position: absolute;
+    inset: 9px;
+    background: var(--paper);
+    border-radius: 50%
+}
+
+.result-score b {
+    position: relative;
+    font: 34px var(--serif)
+}
+
+.review-item {
+    padding: 16px 0;
+    border-top: 1px solid var(--line)
+}
+
+.review-item h4 {
+    font: 17px var(--serif);
+    margin: 0 0 10px
+}
+
+.review-item p {
+    font-size: 12px;
+    line-height: 1.6;
+    margin: 6px 0
+}
+

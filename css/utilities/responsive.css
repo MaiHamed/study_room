@@ -1,0 +1,173 @@
+@media(max-width:950px) {
+    .sidebar {
+        width: 215px
+    }
+
+    .main {
+        margin-left: 215px
+    }
+
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr)
+    }
+
+    .dashboard-grid {
+        grid-template-columns: 1fr
+    }
+
+    .subject-grid {
+        grid-template-columns: repeat(2, 1fr)
+    }
+
+    .view {
+        padding-left: 4vw;
+        padding-right: 4vw
+    }
+}
+
+@media(max-width:650px) {
+    .sidebar {
+        transform: translateX(-100%);
+        transition: .25s;
+        width: 255px;
+        box-shadow: 10px 0 40px #0001
+    }
+
+    .sidebar.open {
+        transform: translateX(0)
+    }
+
+    .main {
+        margin-left: 0
+    }
+
+    .mobile-only {
+        display: block
+    }
+
+    .topbar {
+        height: 58px;
+        padding: 0 17px
+    }
+
+    .today {
+        display: none
+    }
+
+    .view {
+        padding: 28px 17px 50px
+    }
+
+    .page-head {
+        align-items: flex-start;
+        flex-direction: column
+    }
+
+    .page-title {
+        font-size: 32px
+    }
+
+    .welcome {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 16px;
+        padding: 22px
+    }
+
+    .welcome h1 {
+        font-size: 28px
+    }
+
+    .stats-grid {
+        gap: 9px
+    }
+
+    .stat {
+        padding: 14px;
+        min-height: 100px
+    }
+
+    .stat-value {
+        font-size: 25px
+    }
+
+    .subject-grid {
+        grid-template-columns: 1fr
+    }
+
+    .quick-grid {
+        grid-template-columns: 1fr
+    }
+
+    .quick {
+        display: flex;
+        align-items: center;
+        gap: 12px
+    }
+
+    .quick span {
+        margin: 0
+    }
+
+    .table-head {
+        display: none
+    }
+
+    .table-item {
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+        padding: 14px
+    }
+
+    .table-item>*:nth-child(2),
+    .table-item>*:nth-child(3) {
+        font-size: 10px
+    }
+
+    .table-item .row-actions {
+        grid-column: 2;
+        grid-row: 1/4
+    }
+
+    .exam-layout {
+        grid-template-columns: 1fr
+    }
+
+    .exam-side {
+        order: -1
+    }
+
+    .q-grid {
+        grid-template-columns: repeat(10, 1fr)
+    }
+
+    .exam-card {
+        padding: 19px
+    }
+
+    .exam-question {
+        font-size: 21px
+    }
+
+    .form-grid {
+        grid-template-columns: 1fr
+    }
+
+    .form-field.full {
+        grid-column: auto
+    }
+
+    .search-row {
+        align-items: stretch;
+        flex-direction: column
+    }
+
+    .search {
+        width: 100%
+    }
+
+    .bar-row {
+        grid-template-columns: 80px 1fr 35px
+    }
+}
+

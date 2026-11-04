@@ -1,0 +1,49 @@
+/* Subject and topic study hierarchy */
+.hidden{display:none!important}
+.breadcrumbs{display:flex;align-items:center;gap:9px;margin:-13px 0 20px;color:var(--muted);font-size:12px}
+.breadcrumbs button{border:0;background:transparent;color:var(--accent);padding:2px 0;font-weight:600}
+.breadcrumbs button:hover{text-decoration:underline}
+.breadcrumbs b{color:var(--ink);font-weight:600}
+.subject-open{cursor:pointer;overflow:hidden;padding:0 20px 18px}
+.subject-open:hover{border-color:color-mix(in srgb,var(--subject-accent) 45%,var(--line))}
+.subject-art{height:104px;margin:0 -20px 17px;padding:15px 20px;display:flex;align-items:center;justify-content:space-between;background:linear-gradient(115deg,color-mix(in srgb,var(--subject-accent) 16%,var(--paper)),color-mix(in srgb,var(--subject-accent) 7%,var(--paper)));border-bottom:1px solid var(--line)}
+.subject-art>span{display:grid;place-items:center;width:52px;height:52px;border-radius:18px;background:var(--subject-accent);color:#fff;font:28px var(--serif);box-shadow:0 8px 22px color-mix(in srgb,var(--subject-accent) 28%,transparent)}
+.subject-card-actions{display:flex;gap:5px}
+.subject-card-meta{display:flex;gap:8px;color:var(--muted);font-size:10px;text-transform:uppercase;letter-spacing:.6px}
+.subject-card-meta span+span:before{content:'·';margin-right:8px}
+.subject-open h3{font:24px var(--serif);margin:11px 0 5px}
+.subject-open>p{min-height:34px;margin:0 0 14px;color:var(--muted);font-size:11px;line-height:1.55}
+.subject-progress{display:grid;gap:6px}
+.subject-progress small,.topic-card-foot small{color:var(--muted);font-size:10px}
+.subject-open .subject-foot{font-size:10px}
+.subject-open-link{width:100%;margin-top:14px;padding:11px 0 0;border:0;border-top:1px solid var(--line);background:transparent;color:var(--accent);display:flex;justify-content:space-between;font-size:11px;font-weight:700}
+.subject-open-link span{transition:transform .18s ease}
+.subject-open:hover .subject-open-link span{transform:translateX(4px)}
+.topic-section{margin-top:4px}
+.topic-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.topic-card{padding:19px;cursor:pointer;transition:transform .2s ease,border-color .2s ease,box-shadow .2s ease}
+.topic-card:hover{transform:translateY(-3px);border-color:#b6a1d3;box-shadow:var(--shadow)}
+.topic-card-top{display:flex;align-items:center;justify-content:space-between}
+.topic-number{font:20px var(--serif);color:var(--accent);opacity:.8}
+.topic-order{display:flex;gap:2px}
+.topic-order .icon-btn:disabled{opacity:.25;cursor:default}
+.topic-open-title{display:block;width:100%;padding:8px 0;border:0;background:transparent;color:var(--ink);text-align:left;font:20px var(--serif)}
+.topic-open-title span{float:right;color:var(--accent);font:15px var(--sans);transition:transform .18s ease}
+.topic-card:hover .topic-open-title span{transform:translate(2px,-2px)}
+.topic-card>p{min-height:31px;margin:0 0 14px;color:var(--muted);font-size:11px;line-height:1.5}
+.topic-metrics{display:flex;gap:15px;flex-wrap:wrap;padding:12px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);color:var(--muted);font-size:10px}
+.topic-metrics b{color:var(--ink);font-size:12px;margin-right:3px}
+.topic-card>.progress{margin:13px 0 8px}
+.topic-card-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.topic-card-foot>span{display:flex}
+.topic-materials{grid-template-columns:minmax(0,1.3fr) minmax(270px,.8fr);margin-bottom:15px}
+.topic-question-list .table-item{grid-template-columns:minmax(150px,1fr) 80px 110px 105px;padding:12px 10px}
+.topic-question-list .table-item .question-explanation{max-width:440px}
+.topic-card-actions{display:flex;gap:7px;flex-wrap:wrap;margin:-5px 0 12px}
+.topic-flashcards{display:grid;gap:7px;max-height:470px;overflow:auto}
+.topic-flashcard{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:9px;font-size:11px}
+.topic-flashcard label{display:flex;align-items:center;gap:9px;flex:1;min-width:0;cursor:pointer}
+.topic-flashcard label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.topic-flashcard input{accent-color:var(--accent)}
+.subject-history{margin-top:15px}
+

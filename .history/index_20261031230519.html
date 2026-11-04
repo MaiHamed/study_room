@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8"><meta name="viewport"
+      content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f8f5ee"><title>Studyroom — your study
+      space</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link
+      rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap"
+      rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body><div class="app-shell"><aside class="sidebar">
+        <a class="brand" href="#dashboard"><span
+            class="brand-mark">✳</span><span>studyroom<small>YOUR PERSONAL STUDY
+              SPACE</small></span></a>
+        <div class="side-label">WORKSPACE</div><nav id="nav"></nav>
+        <div class="side-bottom"><div class="streak"><span>✦</span><div><b
+                id="side-streak">0 day streak</b><small>Little by little, every
+                day.</small></div></div><button class="theme-btn"
+            id="theme-toggle">☼ <span>Switch appearance</span></button></div>
+      </aside><main class="main"><header class="topbar"><button id="mobile-menu"
+            class="icon-btn mobile-only" aria-label="Open menu">☰</button><div
+            class="crumb" id="crumb">Your overview</div><div
+            class="top-actions"><div class="today" id="today"></div><button
+              class="avatar"
+              title="Your study space">S</button></div></header><section
+          id="view" class="view"></section></main></div><div id="toast"
+      class="toast" role="status"></div><div id="modal-root"></div><script
+      src="app.js"></script></body></html>

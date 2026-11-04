@@ -1,0 +1,21 @@
+/* Preserve explanation structure in question and review views */
+.question-explanation {
+    display: block;
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 400;
+    line-height: 1.55;
+    white-space: pre-line
+}
+
+.answer-explanation {
+    white-space: pre-line;
+    padding-left: 12px;
+    border-left: 2px solid var(--accent);
+    line-height: 1.65
+}
+
+.flashcard-inner {
+    white-space: pre-line
+}

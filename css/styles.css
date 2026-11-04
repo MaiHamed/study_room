@@ -1,0 +1,23 @@
+/* CSS entry point. Import order follows the original stylesheet so later overrides retain their cascade. */
+@import url("global/base.css");
+@import url("layouts/app-shell.css");
+@import url("components/buttons.css");
+@import url("components/surfaces.css");
+@import url("pages/dashboard/dashboard.css");
+@import url("components/question-lists.css");
+@import url("components/subject-cards.css");
+@import url("components/forms.css");
+@import url("components/modals.css");
+@import url("components/exam-taking.css");
+@import url("components/flashcards-and-results.css");
+@import url("components/controls-and-toasts.css");
+@import url("global/dark-theme.css");
+@import url("utilities/responsive.css");
+@import url("components/dark-interactions.css");
+@import url("global/theme-overrides.css");
+@import url("components/form-and-modal-overrides.css");
+@import url("utilities/motion.css");
+@import url("pages/smart-import/smart-import.css");
+@import url("components/explanations.css");
+@import url("pages/subjects/subject-topics.css");
+@import url("pages/exams/custom-exams.css");

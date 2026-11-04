@@ -1,0 +1,35 @@
+.btn {
+    border: 1px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    padding: 10px 15px;
+    border-radius: 9px;
+    font-weight: 600;
+    font-size: 12px;
+    transition: .2s
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow)
+}
+
+.btn.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: white
+}
+
+.btn.ghost {
+    background: transparent
+}
+
+.btn.danger {
+    color: var(--rose)
+}
+
+.btn.small {
+    padding: 7px 10px;
+    font-size: 11px
+}
+

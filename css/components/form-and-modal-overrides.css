@@ -1,0 +1,96 @@
+/* Compact, clear answer option controls */
+.option-row {
+    display: grid;
+    grid-template-columns: 22px minmax(0, 1fr);
+    align-items: center;
+    gap: 10px;
+    padding: 5px 9px;
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    background: var(--paper);
+    transition: border-color .18s ease, background .18s ease, transform .18s ease
+}
+
+.option-row:hover {
+    border-color: #b8a5d6;
+    background: #faf8fd;
+    transform: translateY(-1px)
+}
+
+body.dark .option-row {
+    background: #292733
+}
+
+body.dark .option-row:hover {
+    border-color: #74628f;
+    background: #302c39
+}
+
+.option-row input[type="radio"] {
+    width: 17px !important;
+    height: 17px;
+    margin: 0;
+    justify-self: center;
+    accent-color: #8a70bd
+}
+
+.option-row input[type="text"],
+.option-row input.field {
+    width: 100%;
+    min-width: 0
+}
+
+#modal-form .form-field input[type="radio"] {
+    width: 17px;
+    height: 17px
+}
+
+/* Spacious modal with polished entrance */
+.modal-backdrop {
+    padding: 16px;
+    background: rgba(27, 24, 34, .58);
+    backdrop-filter: blur(7px);
+    animation: veil-in .2s ease both
+}
+
+.modal {
+    width: min(620px, calc(100vw - 32px));
+    max-height: min(88dvh, 900px);
+    margin: auto;
+    padding: 30px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--paper);
+    box-shadow: 0 28px 90px rgba(24, 18, 34, .28);
+    animation: modal-in .28s cubic-bezier(.2, .75, .25, 1) both
+}
+
+.modal h2 {
+    font-size: 29px;
+    letter-spacing: -.4px;
+    margin-bottom: 24px
+}
+
+.modal .form-grid {
+    gap: 18px 14px
+}
+
+.modal .form-field {
+    gap: 8px;
+    font-weight: 600
+}
+
+.modal textarea.field {
+    min-height: 82px
+}
+
+.modal .option-row {
+    margin: 8px 0
+}
+
+.modal-actions {
+    padding-top: 16px;
+    border-top: 1px solid var(--line);
+    margin-top: 24px
+}
+

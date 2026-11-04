@@ -1,0 +1,76 @@
+.subject-grid {
+    grid-template-columns: repeat(3, 1fr)
+}
+
+.subject-card {
+    padding: 20px;
+    position: relative;
+    overflow: hidden
+}
+
+.subject-card:before {
+    content: '';
+    position: absolute;
+    width: 74px;
+    height: 74px;
+    border-radius: 50%;
+    right: -12px;
+    top: -18px;
+    background: #e8e0f3
+}
+
+.subject-card h3 {
+    font: 21px var(--serif);
+    margin: 15px 0 6px
+}
+
+.subject-card p {
+    font-size: 11px;
+    color: var(--muted);
+    min-height: 34px;
+    line-height: 1.5
+}
+
+.subject-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid var(--line);
+    padding-top: 13px;
+    margin-top: 13px;
+    font-size: 10px;
+    color: var(--muted)
+}
+
+.progress {
+    height: 6px;
+    border-radius: 8px;
+    background: #eeece5;
+    overflow: hidden
+}
+
+.progress i {
+    display: block;
+    height: 100%;
+    background: #9479c6;
+    border-radius: 8px
+}
+
+.bar-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 42px;
+    align-items: center;
+    gap: 10px;
+    margin: 13px 0;
+    font-size: 11px
+}
+
+.bar-row .progress {
+    height: 8px
+}
+
+.bar-row b {
+    text-align: right;
+    font-size: 10px
+}
+

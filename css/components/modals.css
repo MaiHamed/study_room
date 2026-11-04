@@ -1,0 +1,32 @@
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: #282a2573;
+    z-index: 30;
+    display: grid;
+    place-items: center;
+    padding: 20px
+}
+
+.modal {
+    width: min(560px, 100%);
+    max-height: 90vh;
+    overflow: auto;
+    background: var(--paper);
+    border-radius: 16px;
+    padding: 24px;
+    box-shadow: 0 22px 80px #0002
+}
+
+.modal h2 {
+    font: 24px var(--serif);
+    margin: 0 0 18px
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 9px;
+    margin-top: 20px
+}
+

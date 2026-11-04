@@ -1,0 +1,39 @@
+:root {
+    --bg: #f8f6f0;
+    --paper: #fffefa;
+    --ink: #282a25;
+    --muted: #85877f;
+    --line: #e9e6dc;
+    --accent: #8068b2;
+    --accent-soft: #f0ebf8;
+    --gold: #c5964b;
+    --rose: #bf766d;
+    --blue: #718aa0;
+    --shadow: 0 14px 40px #4c493b0d;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', sans-serif
+}
+
+* {
+    box-sizing: border-box
+}
+
+body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 14px
+}
+
+button,
+input,
+textarea,
+select {
+    font: inherit
+}
+
+button {
+    cursor: pointer
+}
+
