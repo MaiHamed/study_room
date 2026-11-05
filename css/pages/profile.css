@@ -1,0 +1,17 @@
+.profile-panel { max-width: 760px; margin-top: 26px; padding: 30px; }
+.profile-photo-block { display: flex; align-items: center; gap: 20px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
+.profile-photo-block b { font-size: 14px; }
+.profile-photo-block .page-sub { margin: 6px 0 12px; font-size: 12px; }
+.profile-photo { flex: 0 0 84px; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: #e6def2; color: var(--accent); font-size: 30px; font-weight: 700; }
+.profile-photo img { width: 100%; height: 100%; object-fit: cover; }
+.profile-photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.profile-photo-actions label { cursor: pointer; }
+.profile-fields { margin-top: 26px; }
+.profile-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--line); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+@media (max-width: 650px) {
+  .profile-panel { padding: 20px; }
+  .profile-photo-block { align-items: flex-start; gap: 14px; }
+  .profile-photo { flex-basis: 64px; width: 64px; height: 64px; font-size: 24px; }
+  .profile-actions { position: sticky; bottom: 10px; background: var(--panel); padding: 12px 0 0; }
+}
