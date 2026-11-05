@@ -1,0 +1,14 @@
+# Editor snapshots
+.history/
+
+# Local environment and OS files
+.env
+.env.*
+!.env.example
+.DS_Store
+Thumbs.db
+
+# Common generated artifacts
+node_modules/
+dist/
+coverage/

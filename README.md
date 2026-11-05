@@ -1,33 +1,54 @@
 # Studyroom
 
-A local-first study platform. Open `index.html` in a modern browser to use it. Your subjects, questions, exams, review history, flashcards, and settings are saved in that browser's local storage. Use **Settings → Export backup** to save a portable JSON backup.
+Studyroom is a local-first study app built with plain HTML, CSS, and JavaScript. It has no server, API, authentication provider, package manager, or database. Study data, profile details, and theme preferences are stored in the current browser's local storage. Use **Settings → Export backup** to create a portable backup.
 
-## Project structure
+## Architecture
 
-- `index.html` — app entry point
-- `css/styles.css` — CSS entry point; loads modules in the original cascade order
-- `css/global/` — base styles and theme rules
-- `css/layouts/` — app shell, sidebar, and top bar
-- `css/components/` — reusable controls, forms, cards, dialogs, and study UI
-- `css/pages/` — dashboard, subject/topic, Smart Import, and exam view styles
-- `css/utilities/` — responsive rules and motion
-- `js/app.js` — small application entry point and exam timer startup
-- `js/core/` — persisted app state and shared helpers
-- `js/components/` — layout shell, dialogs, and reusable select controls
-- `js/pages/` — page rendering for dashboard, subjects, questions, exams, study tools, statistics, and settings
-- `js/features/` — exam workflows, question forms/import parsing, and theme configuration
-- `js/services/` — local backup export and restore
-- `js/app/` — application rendering, actions, and event wiring
-- `.history/` — editor history snapshots
+```text
+frontend/
+├── public/
+│   └── index.html           Static application entry point
+└── src/
+    ├── css/                 Global tokens, layouts, components, pages, utilities
+    └── js/
+        ├── app/             Rendering, action dispatch, and event bindings
+        ├── components/      Shared layout, dialogs, and controls
+        ├── core/             Browser state and shared helpers
+        ├── features/         Questions, exams, study, themes, and import workflows
+        ├── pages/            Page-specific rendering
+        └── services/         Local backup import/export
 
-## Included workflows
+.history/                    Editor snapshots; not loaded by the app
+README.md
+```
+
+The files are loaded in dependency order from `frontend/public/index.html` as classic scripts. This keeps the project dependency-free and supports opening the entry point directly in a browser. The script files share the app's runtime scope; keep their load order intact when adding modules.
+
+## Run the app
+
+Open `frontend/public/index.html` in a modern browser. No install or build step is required. Optional typefaces and Lucide/MathJax assets load from CDNs when a network connection is available.
+
+## Data and configuration
+
+- The browser stores the app data under `studyroom.v1` in local storage.
+- Backups are created and restored from **Settings**.
+- There are no backend or database credentials, environment variables, migrations, API endpoints, or authentication flows in this project.
+- A backend/database layer should be added only alongside a concrete server and persistence requirement; the current app does not simulate one.
+
+## Verification
+
+Check JavaScript syntax with Node.js:
+
+```sh
+find frontend/src/js -type f -name '*.js' -exec node --check {} \;
+```
+
+There is no configured automated test or build runner. Browser-based workflow checks should be run from `frontend/public/index.html` after changes to page behavior.
+
+## Existing workflows
 
 - Create subjects with topic lists, and manage MCQ and True/False questions.
-- Generate a 20-question exam with 10 MCQs and 10 True/False questions, spread across available topics.
-- Save attempts and review answers against the question text, options, and correct answer as they were at attempt time.
-- Track recurring misses, infer question difficulty from answer history, and mark questions mastered after three consecutive correct answers.
-- Study flashcards with Again/Hard/Good/Easy scheduling, or start Smart revision to combine weak questions with Again/Hard cards.
-- Review exam history, retry an entire exam or just incorrect answers, inspect statistics, switch themes, and export/restore backups.
-- Paste and parse question sets in Smart Import, review warnings and answers, reorder/edit questions, then import all or selected items. The parser is local pattern recognition; it does not use an AI service or guess missing answers.
-
-No build step or external service is required. The scripts in `index.html` are intentionally loaded in dependency order so the app continues to work when opened directly in a browser. The optional typefaces load from Google Fonts when network access is available; system fonts are used otherwise.
+- Generate exams, take them, mark questions for review, and inspect submitted results.
+- Track recurring misses and study flashcards with spaced review.
+- Use Smart Import to parse question text locally and inspect uncertain fields before import.
+- Customize themes and light/dark appearance; preferences persist in local storage.
