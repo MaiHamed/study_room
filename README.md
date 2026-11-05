@@ -30,7 +30,7 @@ Open `frontend/public/index.html` in a modern browser. No install or build step 
 
 ## Deploy to Vercel
 
-Keep the Vercel project Root Directory set to the repository root and use the **Other** framework preset. `vercel.json` publishes `frontend/` as static output and rewrites `/` to `public/index.html`; no build or install command is required.
+Use the **Other** framework preset and leave the Build Command empty. The repo-level `vercel.json` supports a repository-root project; `frontend/vercel.json` supports a project whose Root Directory is `frontend`. In either case the whole frontend tree is published so `/src/css` and `/src/js` remain available. Do not set the Root Directory to `frontend/public`, because the app's CSS and JavaScript live in the sibling `src` directory. No build or install command is required.
 
 ## Data and configuration
 
