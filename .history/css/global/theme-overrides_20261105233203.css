@@ -1,0 +1,165 @@
+/* Refined violet and warm-neutral theme */
+:root {
+    --bg: #f6f4f8;
+    --paper: #fff;
+    --ink: #292634;
+    --muted: #817d8c;
+    --line: #e8e4ed;
+    --accent: #8068b2;
+    --accent-soft: #f0ebf8;
+    --gold: #c28b54;
+    --rose: #bd716f;
+    --blue: #7186a7;
+    --shadow: 0 12px 34px rgba(46, 34, 66, .07);
+}
+
+body.dark {
+    --bg: #191821;
+    --paper: #24222d;
+    --ink: #f3f0f7;
+    --muted: #aaa5b5;
+    --line: #3a3745;
+    --accent: #b29adf;
+    --accent-soft: #332c40;
+    --gold: #ba8c5e;
+    --rose: #df9187;
+    --blue: #93a9d0;
+    --shadow: 0 16px 42px rgba(0, 0, 0, .25);
+}
+
+body {
+    transition: background-color .25s ease, color .25s ease
+}
+
+.sidebar {
+    background: #f0edf4;
+    border-color: var(--line);
+    transition: background-color .25s ease
+}
+
+body.dark .sidebar {
+    background: #201e28
+}
+
+.brand-mark {
+    background: #e6def2;
+    color: #755ba9
+}
+
+body.dark .brand-mark {
+    background: #393047;
+    color: #c6b1ed
+}
+
+nav button.active {
+    background: #e8e0f3;
+    color: #61488e
+}
+
+body.dark nav button.active {
+    background: #393047;
+    color: #e4d9f6
+}
+
+.eyebrow,
+.panel-link,
+.icon-btn:hover {
+    color: var(--accent)
+}
+
+.welcome {
+    background: linear-gradient(115deg, #eee8f6, #f5eff1);
+    border: 1px solid #e6deef
+}
+
+.welcome:after {
+    color: #8068b215
+}
+
+.welcome p {
+    color: #746d80
+}
+
+body.dark .welcome {
+    background: linear-gradient(115deg, #302a3a, #30272d);
+    border-color: #44394c
+}
+
+body.dark .welcome p {
+    color: #c6bdcf
+}
+
+.quick:hover {
+    background: #f7f3fb;
+    border-color: #d5c8e8
+}
+
+.badge {
+    background: #f0ecf7;
+    color: #684f96
+}
+
+.badge.warn {
+    background: #f8f0e5;
+    color: #a47743
+}
+
+.badge.rose {
+    background: #f8eaea;
+    color: #a85f5d
+}
+
+body.dark .badge {
+    background: #393047;
+    color: #d2c1f1
+}
+
+body.dark .badge.warn {
+    background: #44372a;
+    color: #e0b67e
+}
+
+body.dark .badge.rose {
+    background: #493233;
+    color: #e9aaa2
+}
+
+.progress i {
+    background: linear-gradient(90deg, #9479c6, #c49ac3)
+}
+
+.stat-note {
+    color: var(--muted)
+}
+
+.form-field {
+    color: var(--muted)
+}
+
+.form-field small {
+    color: var(--muted)
+}
+
+.field,
+.search {
+    background: var(--paper);
+    color: var(--ink);
+    border-color: var(--line)
+}
+
+select.field,
+select.field option {
+    background-color: var(--paper);
+    color: var(--ink)
+}
+
+body.dark select.field {
+    color-scheme: dark
+}
+
+input,
+textarea,
+select {
+    accent-color: #8a70bd
+}
+
