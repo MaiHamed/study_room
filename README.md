@@ -28,6 +28,10 @@ The files are loaded in dependency order from `frontend/public/index.html` as cl
 
 Open `frontend/public/index.html` in a modern browser. No install or build step is required. Optional typefaces and Lucide/MathJax assets load from CDNs when a network connection is available.
 
+## Deploy to Vercel
+
+Keep the Vercel project Root Directory set to the repository root and use the **Other** framework preset. `vercel.json` publishes `frontend/` as static output and rewrites `/` to `public/index.html`; no build or install command is required.
+
 ## Data and configuration
 
 - The browser stores the app data under `studyroom.v1` in local storage.

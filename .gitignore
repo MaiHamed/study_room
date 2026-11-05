@@ -1,5 +1,6 @@
 # Editor snapshots
 .history/
+.vercel/
 
 # Local environment and OS files
 .env
