@@ -228,3 +228,43 @@ nav button .nav-icon {
     flex-wrap: wrap
 }
 
+
+/* Lucide navigation icons share a single optical size and inherit state color. */
+#nav button {
+    position: relative;
+    gap: 12px;
+    transition: background-color .18s ease, color .18s ease, transform .18s ease
+}
+
+#nav button:hover { transform: translateX(2px) }
+#nav button.active { box-shadow: inset 3px 0 var(--accent); }
+#nav button .nav-icon {
+    display: grid;
+    place-items: center;
+    flex: 0 0 20px;
+    width: 20px;
+    height: 20px;
+    color: currentColor;
+    text-align: initial
+}
+#nav button .nav-icon svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 1.8
+}
+#nav button.active .nav-icon svg { animation: nav-icon-in .22s ease both }
+
+.brand-mark svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 1.8 }
+.streak > span svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.8 }
+.theme-btn { display: inline-flex; align-items: center; gap: 8px; transition: color .18s ease, transform .18s ease }
+.theme-btn:hover { color: var(--accent); transform: translateX(2px) }
+.theme-btn svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.8 }
+#mobile-menu svg { width: 19px; height: 19px; stroke: currentColor; stroke-width: 1.8 }
+
+@keyframes nav-icon-in { from { transform: scale(.88); opacity: .65 } to { transform: scale(1); opacity: 1 } }
+@media (prefers-reduced-motion: reduce) {
+    #nav button, #nav button .nav-icon svg, .theme-btn { transition: none; animation: none }
+}
+.theme-btn span { margin-left: 0 }
