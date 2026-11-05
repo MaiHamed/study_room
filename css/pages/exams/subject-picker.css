@@ -1,0 +1,177 @@
+/* Premium subject picker for custom exam setup. */
+.subject-picker {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+}
+
+.subject-picker-native {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+}
+
+.subject-picker-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-height: 48px;
+    padding: 0 15px;
+    border: 1px solid color-mix(in srgb, #b5a0dc 28%, var(--line));
+    border-radius: 12px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 90%, #40364f), var(--paper));
+    color: var(--ink);
+    text-align: left;
+    box-shadow: 0 5px 18px rgba(31, 24, 43, .07), inset 0 1px rgba(255, 255, 255, .45);
+    transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
+}
+
+.subject-picker-trigger span {
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.subject-picker-trigger i {
+    flex: none;
+    color: var(--accent);
+    font-size: 19px;
+    font-style: normal;
+    line-height: 1;
+    transition: transform .2s ease;
+}
+
+.subject-picker-trigger:hover,
+.subject-picker.is-open .subject-picker-trigger {
+    border-color: color-mix(in srgb, var(--accent) 62%, #777);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 8px 22px rgba(31, 24, 43, .12);
+}
+
+.subject-picker-trigger:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 38%, transparent);
+    outline-offset: 2px;
+}
+
+.subject-picker.is-open .subject-picker-trigger i {
+    transform: rotate(180deg);
+}
+
+.subject-picker-menu {
+    position: absolute;
+    z-index: 40;
+    inset-inline: 0;
+    top: calc(100% + 8px);
+    max-height: min(280px, 40vh, calc(100dvh - 32px));
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid rgba(188, 169, 219, .26);
+    border-radius: 14px;
+    background: rgba(28, 27, 35, .94);
+    color: #f5f1fb;
+    box-shadow: 0 18px 48px rgba(8, 7, 13, .34), 0 3px 12px rgba(8, 7, 13, .22), inset 0 1px rgba(255, 255, 255, .06);
+    -webkit-backdrop-filter: blur(18px) saturate(135%);
+    backdrop-filter: blur(18px) saturate(135%);
+    scrollbar-color: #75638e transparent;
+    scrollbar-width: thin;
+    animation: subject-menu-in .16s cubic-bezier(.2, .7, .25, 1) both;
+}
+
+.subject-picker-menu[hidden] {
+    display: none;
+}
+
+.subject-picker.opens-up .subject-picker-menu {
+    top: auto;
+    bottom: calc(100% + 8px);
+    animation-name: subject-menu-in-up;
+}
+
+.subject-picker-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 40px;
+    padding: 9px 11px;
+    border: 1px solid transparent;
+    border-radius: 9px;
+    background: transparent;
+    color: #d8d3e1;
+    cursor: pointer;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: left;
+    transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+
+.subject-picker-option:hover,
+.subject-picker-option.is-active {
+    border-color: rgba(184, 156, 230, .12);
+    background: rgba(157, 128, 204, .16);
+    color: #fff;
+}
+
+.subject-picker-option.is-selected {
+    background: rgba(157, 128, 204, .2);
+    color: #d9c5ff;
+    font-weight: 650;
+}
+
+.subject-picker-option b {
+    color: #c7a9ff;
+    font-size: 12px;
+    opacity: 0;
+}
+
+.subject-picker-option.is-selected b {
+    opacity: 1;
+    text-shadow: 0 0 12px rgba(184, 145, 255, .72);
+}
+
+.subject-picker-menu::-webkit-scrollbar {
+    width: 7px;
+}
+
+.subject-picker-menu::-webkit-scrollbar-thumb {
+    border: 2px solid transparent;
+    border-radius: 8px;
+    background: #75638e;
+    background-clip: padding-box;
+}
+
+.subject-picker-menu::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+@keyframes subject-menu-in {
+    from { opacity: 0; transform: translateY(-5px) scale(.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes subject-menu-in-up {
+    from { opacity: 0; transform: translateY(5px) scale(.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .subject-picker-trigger,
+    .subject-picker-trigger i,
+    .subject-picker-option { transition: none; }
+    .subject-picker-menu { animation: none; }
+}

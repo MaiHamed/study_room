@@ -2,7 +2,7 @@
   const KEY = 'studyroom.v1';
   const blank = () => ({ subjects: [], questions: [], cards: [], exams: [], attempts: [], reviews: {}, importHashes: [], settings: { dark: false }, activity: [], streak: 0, lastStudy: null });
   let db; try { db = { ...blank(), ...JSON.parse(localStorage.getItem(KEY) || '{}') }; } catch { db = blank(); }
-  let page = 'dashboard', modal = null, examRun = null, flashRun = null, searchText = '', filters = { type: 'all', subject: 'all' }, toastTimer, subjectViewId = null, topicViewName = '', topicQuestionFilter = 'all', resultTopicFilter = '', examSetup = { scope: 'general', subjectId: '', topic: '' }, examManualIds = new Set(), importDraft = { raw: '', questions: [], subjectId: '', topic: '', type: 'auto', hash: '', duplicate: false, ...(db.importDraft || {}) }, importSaveTimer;
+  let page = 'dashboard', modal = null, examRun = null, flashRun = null, searchText = '', filters = { type: 'all', subject: 'all' }, toastTimer, subjectViewId = null, topicViewName = '', topicQuestionFilter = 'all', resultTopicFilter = '', examSetup = { scope: 'general', subjectId: '', topic: '' }, examManualIds = new Set(), importDraft = { raw: '', questions: [], subjectId: '', topic: '', type: 'auto', hash: '', duplicate: false, ...(db.importDraft || {}) }, importSaveTimer, subjectPickerSearch = '', subjectPickerSearchTimer;
   const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)], esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // Keep the stored value as the editable source; only create escaped display HTML here.
   function mathHtml(value) {
@@ -112,7 +112,7 @@
   function createExam() {
     let scope = examSetup.scope || 'general', subject = db.subjects.find(s => s.id === examSetup.subjectId), locked = scope !== 'general';
     let context = scope === 'topic' ? `Topic exam · ${subject?.name || ''} · ${examSetup.topic}` : scope === 'subject' ? `Subject exam · ${subject?.name || ''}` : 'Choose subject, topics, types, and exam length.';
-    let subjectField = locked ? `<input type="hidden" name="subject" value="${esc(examSetup.subjectId || '')}"><div class="form-field full"><span>Subject</span><div class="scope-chip">${esc(subject?.name || 'Choose a subject')}${scope === 'topic' ? ` <span>› ${esc(examSetup.topic)}</span>` : ''}</div></div>` : `<label class="form-field full">Subject<select class="field" required name="subject"><option value="">Choose a subject</option>${db.subjects.map(s => `<option value="${s.id}" ${examSetup.subjectId === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></label>`;
+    let subjectField = locked ? `<input type="hidden" name="subject" value="${esc(examSetup.subjectId || '')}"><div class="form-field full"><span>Subject</span><div class="scope-chip">${esc(subject?.name || 'Choose a subject')}${scope === 'topic' ? ` <span>› ${esc(examSetup.topic)}</span>` : ''}</div></div>` : `<div class="form-field full"><span id="exam-subject-label">Subject</span><div class="subject-picker" data-subject-picker><select class="subject-picker-native" name="subject" tabindex="-1" aria-hidden="true"><option value="">Choose a subject</option>${db.subjects.map(s => `<option value="${s.id}" ${examSetup.subjectId === s.id ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select><button class="subject-picker-trigger" type="button" role="combobox" aria-required="true" aria-labelledby="exam-subject-label" aria-haspopup="listbox" aria-controls="exam-subject-options" aria-expanded="false"><span>${esc(subject?.name || 'Choose a subject')}</span><i aria-hidden="true">⌄</i></button><div class="subject-picker-menu" id="exam-subject-options" role="listbox" aria-labelledby="exam-subject-label" hidden>${[{ id: '', name: 'Choose a subject' }, ...db.subjects].map((s, i) => `<button type="button" class="subject-picker-option${(s.id || '') === (examSetup.subjectId || '') ? ' is-selected' : ''}" role="option" data-value="${esc(s.id || '')}" aria-selected="${(s.id || '') === (examSetup.subjectId || '')}" id="exam-subject-option-${i}"><span>${esc(s.name)}</span><b aria-hidden="true">✓</b></button>`).join('')}</div></div></div>`;
     let countControl = scope === 'subject' ? `<div id="exam-topic-choices" class="exam-topic-counts"><span class="page-sub">Choose topics and set a question count for each.</span></div>` : `<div class="form-field"><span>Exam size</span><input class="field" type="number" min="1" name="count" value="20"></div>`;
     return pageHead(scope === 'topic' ? 'TOPIC EXAM' : scope === 'subject' ? 'SUBJECT EXAM' : 'CUSTOM PRACTICE', scope === 'topic' ? `Exam: ${examSetup.topic}` : scope === 'subject' ? `Exam: ${subject?.name || 'Subject'}` : 'Create an exam', context, `<button class="btn" data-page="${scope === 'topic' || scope === 'subject' ? 'subjects' : 'exams'}">Cancel</button>`) + `<div class="panel exam-builder"><form id="exam-form" data-scope="${scope}"><div class="form-grid"><label class="form-field full">Exam name<input required class="field" name="name" value="${esc(scope === 'topic' ? `${examSetup.topic} practice` : scope === 'subject' ? `${subject?.name || 'Subject'} practice` : 'Practice exam')}"></label>${subjectField}<div class="form-field full ${scope === 'topic' ? 'hidden' : ''}" id="exam-topic-area"><span>${scope === 'subject' ? 'Question count by topic' : 'Topics to include'}</span>${scope === 'subject' ? countControl : `<div id="topic-choices" class="exam-topic-choices"><span class="page-sub">Choose a subject to load topics.</span></div>`}</div>${scope === 'topic' ? countControl : ''}<div class="form-field full"><span>Question types</span><div class="exam-types"><label><input type="checkbox" name="qtype" value="mcq" checked> Multiple choice</label><label><input type="checkbox" name="qtype" value="tf" checked> True / False</label><label><input type="checkbox" name="qtype" value="short"> Short answer</label></div></div><label class="form-field">Difficulty<select class="field" name="difficulty"><option value="all">Any difficulty</option><option value="New">New</option><option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option></select></label><div class="form-field"><span>Question selection</span><label><input type="checkbox" name="manual"> Choose questions manually</label></div><div class="form-field full manual-questions hidden" id="manual-question-area"><span>Available questions</span><div id="manual-question-list"></div></div><div class="exam-options form-field full"><label><input type="checkbox" name="randomize" checked> Randomize question order</label><label><input type="checkbox" name="shuffleChoices"> Randomize answer choices</label><label><input type="checkbox" name="allQuestions"> Include all eligible questions</label></div><label class="form-field">Time limit in minutes<input type="number" min="1" class="field" name="minutes" placeholder="No limit"></label><label class="form-field">Passing score (%)<input type="number" min="1" max="100" class="field" name="pass" placeholder="No pass mark"></label><label class="form-field full">Instructions<textarea class="field" name="instructions" placeholder="Optional note before you begin"></textarea></label></div><div id="exam-availability" class="exam-availability"></div><div class="modal-actions"><button class="btn primary" type="submit">Generate exam →</button></div></form></div>`;
   }
@@ -122,7 +122,87 @@
   function mistakes() { let qs = db.questions.filter(q => { let r = db.reviews[q.id] || {}; return r.wrong > 0 && !r.mastered && !r.dismissed; }).sort((a, b) => (db.reviews[b.id]?.wrong || 0) - (db.reviews[a.id]?.wrong || 0)); return pageHead('LEARN FROM THE MISSES', 'My mistakes', 'Questions you’ve missed, with the original answer history kept intact.', qs.length ? `<button class="btn primary" data-action="mistake-practice">Practice ${qs.length} questions</button>` : '') + (qs.length ? `<div class="panel table-card">${qs.map(q => { let r = db.reviews[q.id]; return `<div class="table-item" style="grid-template-columns:2fr 1fr 100px 140px"><div class="question-text">${mathHtml(q.text)}</div><div>${esc(subjectName(q.subjectId))}</div><div><span class="badge rose">${r.wrong} ${r.wrong === 1 ? 'miss' : 'misses'}</span></div><div class="row-actions"><button class="icon-btn" data-action="mistake-master" data-id="${q.id}">✓ Master</button><button class="icon-btn" data-action="mistake-dismiss" data-id="${q.id}">×</button></div></div>` }).join('')}</div>` : `<div class="panel empty"><div class="empty-icon">✦</div>No open mistakes. Keep going at your own pace.</div>`); }
   function statistics() { let done = db.attempts.filter(a => a.submittedAt), bySubject = db.subjects.map(s => { let as = done.filter(a => a.subjectId === s.id), pct = as.length ? Math.round(as.reduce((x, a) => x + a.score / a.questions.length * 100, 0) / as.length) : 0; return [s.name, pct, as.length] }); let total = Object.values(db.reviews).reduce((a, r) => a + r.wrong + r.correct, 0), wrong = Object.values(db.reviews).reduce((a, r) => a + r.wrong, 0); return pageHead('A CLEARER PICTURE', 'Statistics', 'Use your practice history to decide what to study next.') + `<div class="grid stats-grid">${stat('Exam average', metrics().avg + '%', `${done.length} completed exams`, '◌')}${stat('Questions answered', total, 'Across all saved attempts', '☷')}${stat('Incorrect answers', wrong, `${total ? Math.round(wrong / total * 100) : 0}% of tracked responses`, '↗')}${stat('Study streak', `${db.streak || 0} days`, 'Keep your rhythm gentle', '✦')}</div><div class="grid dashboard-grid"><div class="panel"><div class="panel-head"><h2 class="panel-title">Performance by subject</h2></div>${bySubject.length ? bySubject.map(([name, pct, n]) => `<div class="bar-row"><span>${esc(name)}</span><div class="progress"><i style="width:${pct}%"></i></div><b>${n ? pct + '%' : '—'}</b></div>`).join('') : `<div class="empty">Add subjects and complete an exam to see performance here.</div>`}</div><div class="panel"><div class="panel-head"><h2 class="panel-title">Topics to revisit</h2></div>${db.questions.map(q => ({ q, r: db.reviews[q.id] || { wrong: 0 } })).filter(x => x.r.wrong).sort((a, b) => b.r.wrong - a.r.wrong).slice(0, 5).map(({ q, r }) => `<div class="activity-row"><span class="dot" style="background:#bf766d"></span><div class="row-main"><b>${mathHtml(q.text)}</b><small>${esc(subjectName(q.subjectId))}</small></div><span class="row-meta">${r.wrong}×</span></div>`).join('') || `<div class="empty">Question patterns will appear after your first exam.</div>`}</div></div>`; }
   function settings() { return pageHead('YOUR STUDYROOM', 'Settings', 'Keep your data safe and make this space feel like yours.') + `<div class="grid dashboard-grid"><div class="panel"><h2 class="panel-title">Appearance</h2><p class="page-sub" style="margin:8px 0 18px">Switch between the warm light theme and a softer dark theme.</p><label>Dark appearance <input class="toggle" type="checkbox" id="dark-setting" ${db.settings.dark ? 'checked' : ''}></label></div><div class="panel"><h2 class="panel-title">Your data</h2><p class="page-sub" style="margin:8px 0 18px">Your materials and study history are stored in this browser.</p><div class="actions"><button class="btn" data-action="export">Export backup</button><button class="btn" data-action="import">Restore backup</button><button class="btn danger" data-action="clear-data">Clear all data</button></div></div></div>`; }
-  function render() { shell(); let out = page === 'dashboard' ? dashboard() : page === 'subjects' ? subjects() : page === 'subject-detail' ? subjectDetail() : page === 'topic-detail' ? topicDetail() : page === 'questions' ? questions() : page === 'smart-import' ? smartImport() : page === 'import-preview' ? previewImport() : page === 'import-working' ? `<div class="panel import-progress"><div class="import-icon">✦</div><h2 class="panel-title">Organizing your questions…</h2><p class="page-sub">Checking lines, choices, answer keys, and possible formatting issues.</p><div class="progress"><i></i></div></div>` : page === 'create-exam' ? createExam() : page === 'exams' ? exams() : page === 'flashcards' ? cardsPage() : page === 'mistakes' ? mistakes() : page === 'statistics' ? statistics() : page === 'settings' ? settings() : page === 'run-exam' ? runExam() : page === 'result' ? resultLookup() : page === 'study-cards' ? studyCards() : settings(); $('#view').innerHTML = out; $('#modal-root').innerHTML = modal || ''; renderMath($('#view')); renderMath($('#modal-root')); if (page === 'create-exam') refreshExamBuilder(); }
+  let customSelectId = 0, appSelectSearch = '', appSelectSearchTimer;
+  function refreshCustomSelect(select) {
+    if (!select || select.matches('.subject-picker-native, [multiple], [size]')) return;
+    let host = select.parentElement, wrapper = select.closest('.app-select');
+    if (!wrapper) {
+      wrapper = document.createElement('div'); wrapper.className = 'app-select';
+      select.before(wrapper); wrapper.append(select);
+      let trigger = document.createElement('button'); trigger.type = 'button'; trigger.className = 'app-select-trigger'; trigger.setAttribute('role', 'combobox'); trigger.setAttribute('aria-haspopup', 'listbox'); trigger.setAttribute('aria-expanded', 'false');
+      let selectId = ++customSelectId, label = select.labels?.[0], labelId = label?.id;
+      if (!labelId && label) { labelId = `app-select-label-${selectId}`; label.id = labelId; }
+      if (labelId) trigger.setAttribute('aria-labelledby', labelId); else trigger.setAttribute('aria-label', select.getAttribute('aria-label') || select.name || 'Choose an option');
+      let menu = document.createElement('div'); menu.className = 'app-select-menu'; menu.setAttribute('role', 'listbox'); if (labelId) menu.setAttribute('aria-labelledby', labelId); menu.hidden = true;
+      let menuId = `app-select-list-${selectId}`; menu.id = menuId; trigger.setAttribute('aria-controls', menuId);
+      wrapper.append(trigger, menu); select.classList.add('app-select-native'); select.tabIndex = -1; select.setAttribute('aria-hidden', 'true');
+    }
+    let trigger = $('.app-select-trigger', wrapper), menu = $('.app-select-menu', wrapper), signature = [...select.options].map(o => `${o.value}\u0000${o.textContent}\u0000${o.disabled}`).join('\u0001');
+    if (menu.dataset.signature !== signature) {
+      menu.replaceChildren();
+      [...select.options].forEach((option, index) => {
+        let item = document.createElement('button'); item.type = 'button'; item.className = 'app-select-option'; item.setAttribute('role', 'option'); item.dataset.index = index; item.disabled = option.disabled; item.id = `${menu.id}-option-${index}`; item.setAttribute('aria-selected', String(option === select.selectedOptions[0]));
+        let text = document.createElement('span'); text.textContent = option.textContent; let check = document.createElement('b'); check.textContent = '✓'; check.setAttribute('aria-hidden', 'true'); item.append(text, check); menu.append(item);
+      });
+      menu.dataset.signature = signature;
+    }
+    let selected = select.selectedOptions[0], current = selected?.textContent || '';
+    $('span', trigger)?.remove();
+    let value = document.createElement('span'); value.textContent = current; trigger.prepend(value);
+    $$('.app-select-option', menu).forEach((item, index) => {
+      let isSelected = select.options[index] === selected; item.classList.toggle('is-selected', isSelected); item.setAttribute('aria-selected', String(isSelected));
+    });
+  }
+  function refreshCustomSelects(root = document) { $$('select', root).forEach(refreshCustomSelect); }
+  function closeAppSelect(wrapper) {
+    if (!wrapper) return;
+    wrapper.classList.remove('is-open', 'opens-up');
+    $('.app-select-trigger', wrapper)?.setAttribute('aria-expanded', 'false');
+    $('.app-select-menu', wrapper)?.setAttribute('hidden', '');
+    $('.app-select-trigger', wrapper)?.removeAttribute('aria-activedescendant');
+  }
+  function openAppSelect(wrapper, activeIndex) {
+    let trigger = $('.app-select-trigger', wrapper), menu = $('.app-select-menu', wrapper), items = $$('.app-select-option:not(:disabled)', menu), selected = items.findIndex(item => item.getAttribute('aria-selected') === 'true');
+    wrapper.classList.add('is-open'); menu.removeAttribute('hidden');
+    let roomBelow = innerHeight - trigger.getBoundingClientRect().bottom;
+    wrapper.classList.toggle('opens-up', roomBelow < Math.min(menu.scrollHeight, 280) && trigger.getBoundingClientRect().top > roomBelow);
+    trigger.setAttribute('aria-expanded', 'true');
+    let index = Math.max(0, Math.min(items.length - 1, activeIndex ?? Math.max(0, selected)));
+    items.forEach((item, i) => item.classList.toggle('is-active', i === index));
+    trigger.setAttribute('aria-activedescendant', items[index]?.id || ''); items[index]?.scrollIntoView({ block: 'nearest' });
+  }
+  document.addEventListener('click', e => {
+    let wrapper = e.target.closest('.app-select');
+    if (!wrapper) { closeAppSelect($('.app-select.is-open')); return; }
+    let trigger = e.target.closest('.app-select-trigger'), item = e.target.closest('.app-select-option');
+    if (trigger) wrapper.classList.contains('is-open') ? closeAppSelect(wrapper) : openAppSelect(wrapper);
+    if (item) {
+      let select = $('select', wrapper), index = +item.dataset.index, triggerButton = $('.app-select-trigger', wrapper);
+      select.selectedIndex = index; refreshCustomSelect(select); closeAppSelect(wrapper); triggerButton?.focus();
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  document.addEventListener('keydown', e => {
+    let trigger = e.target.closest?.('.app-select-trigger'); if (!trigger) return;
+    let wrapper = trigger.closest('.app-select'), items = $$('.app-select-option:not(:disabled)', wrapper), active = Math.max(0, items.findIndex(item => item.classList.contains('is-active')));
+    if (e.key === 'Tab') { closeAppSelect(wrapper); return; }
+    if (e.key === 'Escape') { closeAppSelect(wrapper); return; }
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) {
+      e.preventDefault(); let next = e.key === 'Home' ? 0 : e.key === 'End' ? items.length - 1 : (active + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length; openAppSelect(wrapper, next);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault(); if (!wrapper.classList.contains('is-open')) openAppSelect(wrapper); else items[active]?.click();
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      appSelectSearch += e.key.toLocaleLowerCase(); clearTimeout(appSelectSearchTimer); appSelectSearchTimer = setTimeout(() => { appSelectSearch = ''; }, 650);
+      let index = items.findIndex(item => $('span', item).textContent.toLocaleLowerCase().startsWith(appSelectSearch)); if (index >= 0) openAppSelect(wrapper, index);
+    }
+  });
+  document.addEventListener('invalid', e => {
+    if (e.target.matches('select.app-select-native')) { e.preventDefault(); $('.app-select-trigger', e.target.closest('.app-select'))?.focus(); }
+  }, true);
+  document.addEventListener('change', e => {
+    if (e.target.matches('select:not(.subject-picker-native)')) { requestAnimationFrame(() => refreshCustomSelects($('#view'))); requestAnimationFrame(() => refreshCustomSelects($('#modal-root'))); }
+  });
+  function render() { shell(); let out = page === 'dashboard' ? dashboard() : page === 'subjects' ? subjects() : page === 'subject-detail' ? subjectDetail() : page === 'topic-detail' ? topicDetail() : page === 'questions' ? questions() : page === 'smart-import' ? smartImport() : page === 'import-preview' ? previewImport() : page === 'import-working' ? `<div class="panel import-progress"><div class="import-icon">✦</div><h2 class="panel-title">Organizing your questions…</h2><p class="page-sub">Checking lines, choices, answer keys, and possible formatting issues.</p><div class="progress"><i></i></div></div>` : page === 'create-exam' ? createExam() : page === 'exams' ? exams() : page === 'flashcards' ? cardsPage() : page === 'mistakes' ? mistakes() : page === 'statistics' ? statistics() : page === 'settings' ? settings() : page === 'run-exam' ? runExam() : page === 'result' ? resultLookup() : page === 'study-cards' ? studyCards() : settings(); $('#view').innerHTML = out; $('#modal-root').innerHTML = modal || ''; refreshCustomSelects($('#view')); refreshCustomSelects($('#modal-root')); renderMath($('#view')); renderMath($('#modal-root')); if (page === 'create-exam') refreshExamBuilder(); }
   function notify(s) { let t = $('#toast'); t.textContent = s; t.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2300); }
   function analyzeImport() { let raw = $('#import-raw')?.value || importDraft.raw; if (!raw.trim()) { notify('Paste some question text first.'); return; } if (!$('#import-subject')?.value || !$('#import-topic')?.value) { notify('Choose a subject and topic before analyzing these questions.'); return; } importDraft.raw = raw; importDraft.subjectId = $('#import-subject')?.value || ''; importDraft.topic = $('#import-topic')?.value.trim() || ''; importDraft.hash = textHash(raw.trim().replace(/\s+/g, ' ')); importDraft.duplicate = (db.importHashes || []).includes(importDraft.hash); db.importDraft = JSON.parse(JSON.stringify(importDraft)); save(); let mode = $('#import-type')?.value || 'auto'; importDraft.type = mode; page = 'import-working'; render(); setTimeout(() => { let found = parseBulkQuestions(raw); if (mode !== 'auto') found.forEach(q => { let previous = q.type; q.type = mode; if (mode === 'mcq') { q.options = q.options.length ? q.options : ['', '']; if (previous !== 'mcq') q.correct = null; if (q.options.length < 2 && !q.warnings.some(w => w.includes('fewer than'))) q.warnings.push('This multiple-choice question has fewer than two choices.'); if (q.options.some(x => !x.trim()) && !q.warnings.some(w => w.includes('choices are empty'))) q.warnings.push('One or more answer choices are empty.'); } else { q.options = []; if (previous !== mode) q.correct = null; } if (q.correct === null && !q.warnings.some(w => w.includes('No correct answer'))) q.warnings.push('No correct answer was detected. Confirm or add it before using this question in an exam.'); }); const seenText = new Set(); found.forEach(q => { let normalized = q.text.trim().toLowerCase(); if (normalized && seenText.has(normalized)) q.warnings.push('This question text duplicates another question in this import.'); if (normalized) seenText.add(normalized); if (normalized && db.questions.some(old => old.text.trim().toLowerCase() === normalized)) q.warnings.push('A question with matching text is already in your bank.'); }); importDraft.questions = found; db.importDraft = JSON.parse(JSON.stringify(importDraft)); save(); page = 'import-preview'; render(); }, 80); }
   function commitImported(all = false) { let selected = all ? importDraft.questions : importDraft.questions.filter(q => q.selected); if (!selected.length) { notify('Select at least one question to import.'); return; } let repeats = selected.filter(q => q.warnings.some(w => w.includes('matching text is already in your bank') || w.includes('duplicates another question'))).length; if ((importDraft.duplicate || repeats) && !confirm(`${importDraft.duplicate ? 'This pasted text was imported before. ' : ''}${repeats ? `${repeats} selected question${repeats === 1 ? '' : 's'} match existing question text. ` : ''}Import anyway?`)) return; const imported = selected.map(q => ({ id: uid(), text: q.text.trim(), type: q.type, options: q.type === 'mcq' ? q.options.map(x => x.trim()) : [], correct: q.correct, explanation: q.explanation.trim(), subjectId: importDraft.subjectId, topic: importDraft.topic, sourceNumber: q.sourceNumber || q.number, importWarnings: q.warnings })); db.questions.push(...imported); delete db.importDraft; if (selected.length === importDraft.questions.length) { db.importHashes = db.importHashes || []; if (!db.importHashes.includes(importDraft.hash)) db.importHashes.push(importDraft.hash); } save(); searchText = ''; filters = { type: 'all', subject: 'all' }; page = 'questions'; notify(`${imported.length} question${imported.length === 1 ? '' : 's'} added to your question bank.`); render(); }
@@ -213,6 +293,74 @@
     picked = picked.map(q => { let snapshot = JSON.parse(JSON.stringify(q)); if (f.has('shuffleChoices') && snapshot.type === 'mcq') { let order = shuffle(snapshot.options.map((_, i) => i)); snapshot.options = order.map(i => q.options[i]); snapshot.correct = order.indexOf(q.correct); } return snapshot; });
     startAttempt(f.get('name').trim(), sid, picked, { scope, topicName: scope === 'topic' ? examSetup.topic : null, topicCounts, minutes: +f.get('minutes') || null, pass: +f.get('pass') || null, instructions: f.get('instructions').trim() });
   }
+  function closeSubjectPicker(picker) {
+    if (!picker) return;
+    picker.classList.remove('is-open', 'opens-up');
+    let trigger = $('.subject-picker-trigger', picker), menu = $('.subject-picker-menu', picker);
+    trigger?.setAttribute('aria-expanded', 'false');
+    menu?.setAttribute('hidden', '');
+    trigger?.removeAttribute('aria-activedescendant');
+  }
+  function openSubjectPicker(picker, activeIndex) {
+    let trigger = $('.subject-picker-trigger', picker), menu = $('.subject-picker-menu', picker), options = $$('.subject-picker-option', picker);
+    if (!trigger || !menu) return;
+    let selectedIndex = Math.max(0, options.findIndex(option => option.getAttribute('aria-selected') === 'true'));
+    picker.classList.add('is-open');
+    menu.removeAttribute('hidden');
+    let roomBelow = innerHeight - trigger.getBoundingClientRect().bottom;
+    picker.classList.toggle('opens-up', roomBelow < Math.min(menu.scrollHeight, 280) && trigger.getBoundingClientRect().top > roomBelow);
+    trigger.setAttribute('aria-expanded', 'true');
+    let index = Math.max(0, Math.min(options.length - 1, activeIndex ?? selectedIndex));
+    options.forEach((option, i) => option.classList.toggle('is-active', i === index));
+    trigger.setAttribute('aria-activedescendant', options[index]?.id || '');
+    options[index]?.scrollIntoView({ block: 'nearest' });
+  }
+  document.addEventListener('click', e => {
+    let picker = e.target.closest('[data-subject-picker]');
+    if (!picker) { closeSubjectPicker($('[data-subject-picker].is-open')); return; }
+    let trigger = e.target.closest('.subject-picker-trigger'), option = e.target.closest('.subject-picker-option');
+    if (trigger) {
+      if (picker.classList.contains('is-open')) closeSubjectPicker(picker);
+      else openSubjectPicker(picker);
+    }
+    if (option) {
+      let select = $('.subject-picker-native', picker), value = option.dataset.value;
+      if (select.value !== value) {
+        select.value = value;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+      $('.subject-picker-trigger span', picker).textContent = $('span', option).textContent;
+      $$('.subject-picker-option', picker).forEach(item => {
+        let selected = item === option;
+        item.classList.toggle('is-selected', selected);
+        item.setAttribute('aria-selected', String(selected));
+      });
+      closeSubjectPicker(picker);
+      $('.subject-picker-trigger', picker)?.focus();
+    }
+  });
+  document.addEventListener('keydown', e => {
+    let trigger = e.target.closest?.('.subject-picker-trigger');
+    if (!trigger) return;
+    let picker = trigger.closest('[data-subject-picker]'), options = $$('.subject-picker-option', picker), active = Math.max(0, options.findIndex(option => option.classList.contains('is-active')));
+    if (e.key === 'Tab') { closeSubjectPicker(picker); return; }
+    if (e.key === 'Escape') { closeSubjectPicker(picker); return; }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Home' || e.key === 'End') {
+      e.preventDefault();
+      let next = e.key === 'Home' ? 0 : e.key === 'End' ? options.length - 1 : (active + (e.key === 'ArrowDown' ? 1 : -1) + options.length) % options.length;
+      openSubjectPicker(picker, next);
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      if (!picker.classList.contains('is-open')) openSubjectPicker(picker);
+      else options[active]?.click();
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      subjectPickerSearch += e.key.toLocaleLowerCase();
+      clearTimeout(subjectPickerSearchTimer);
+      subjectPickerSearchTimer = setTimeout(() => { subjectPickerSearch = ''; }, 650);
+      let match = options.findIndex(option => $('span', option).textContent.toLocaleLowerCase().startsWith(subjectPickerSearch));
+      if (match >= 0) openSubjectPicker(picker, match);
+    }
+  });
   document.addEventListener('submit', e => {
     if (e.target.id === 'modal-form') {
       e.preventDefault(); let f = new FormData(e.target), edit = e.target.dataset.edit;

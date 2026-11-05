@@ -1,0 +1,179 @@
+/* Shared custom menus for native selects across the app. */
+.app-select {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+}
+
+.app-select-native {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+}
+
+.app-select-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    width: 100%;
+    min-height: 43px;
+    padding: 9px 38px 9px 12px;
+    border: 1px solid color-mix(in srgb, #b5a0dc 28%, var(--line));
+    border-radius: 10px;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 90%, #40364f), var(--paper));
+    color: var(--ink);
+    text-align: left;
+    position: relative;
+    box-shadow: 0 3px 12px rgba(31, 24, 43, .05), inset 0 1px rgba(255, 255, 255, .35);
+    transition: border-color .18s ease, box-shadow .18s ease;
+}
+
+.app-select-trigger::after {
+    content: '';
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-right: 1.7px solid var(--accent);
+    border-bottom: 1.7px solid var(--accent);
+    transform: translateY(-70%) rotate(45deg);
+    transition: transform .18s ease;
+}
+
+.app-select-trigger > span {
+    display: block;
+    min-width: 0;
+    overflow: hidden;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 550;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.app-select-trigger:hover,
+.app-select.is-open .app-select-trigger {
+    border-color: color-mix(in srgb, var(--accent) 62%, #777);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 13%, transparent), 0 7px 20px rgba(31, 24, 43, .1);
+}
+
+.app-select-trigger:focus-visible {
+    outline: 3px solid color-mix(in srgb, var(--accent) 36%, transparent);
+    outline-offset: 2px;
+}
+
+.app-select.is-open .app-select-trigger::after {
+    transform: translateY(-25%) rotate(225deg);
+}
+
+.app-select-menu {
+    position: absolute;
+    z-index: 40;
+    inset-inline: 0;
+    top: calc(100% + 7px);
+    max-height: min(280px, 40vh, calc(100dvh - 32px));
+    padding: 6px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border: 1px solid rgba(188, 169, 219, .26);
+    border-radius: 13px;
+    background: rgba(28, 27, 35, .95);
+    color: #f5f1fb;
+    box-shadow: 0 18px 48px rgba(8, 7, 13, .34), 0 3px 12px rgba(8, 7, 13, .22), inset 0 1px rgba(255, 255, 255, .06);
+    -webkit-backdrop-filter: blur(18px) saturate(135%);
+    backdrop-filter: blur(18px) saturate(135%);
+    scrollbar-color: #75638e transparent;
+    scrollbar-width: thin;
+    animation: app-select-in .16s cubic-bezier(.2, .7, .25, 1) both;
+}
+
+.app-select-menu[hidden] { display: none; }
+
+.app-select.opens-up .app-select-menu {
+    top: auto;
+    bottom: calc(100% + 7px);
+    animation-name: app-select-in-up;
+}
+
+.app-select-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    width: 100%;
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    background: transparent;
+    color: #d8d3e1;
+    cursor: pointer;
+    font: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    text-align: left;
+    transition: background .14s ease, color .14s ease, border-color .14s ease;
+}
+
+.app-select-option:hover,
+.app-select-option.is-active {
+    border-color: rgba(184, 156, 230, .12);
+    background: rgba(157, 128, 204, .16);
+    color: #fff;
+}
+
+.app-select-option.is-selected {
+    background: rgba(157, 128, 204, .2);
+    color: #d9c5ff;
+    font-weight: 650;
+}
+
+.app-select-option b {
+    color: #c7a9ff;
+    font-size: 11px;
+    opacity: 0;
+}
+
+.app-select-option.is-selected b { opacity: 1; }
+.app-select-option:disabled { opacity: .45; cursor: not-allowed; }
+.app-select-menu::-webkit-scrollbar { width: 7px; }
+.app-select-menu::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 8px; background: #75638e; background-clip: padding-box; }
+.app-select-menu::-webkit-scrollbar-track { background: transparent; }
+
+.toolbar > .app-select {
+    width: auto;
+    flex: 0 1 auto;
+}
+
+.toolbar > .app-select .app-select-trigger {
+    width: auto;
+    min-width: 130px;
+    max-width: min(280px, 52vw);
+}
+
+@keyframes app-select-in {
+    from { opacity: 0; transform: translateY(-5px) scale(.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes app-select-in-up {
+    from { opacity: 0; transform: translateY(5px) scale(.99); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .app-select-trigger,
+    .app-select-trigger::after,
+    .app-select-option { transition: none; }
+    .app-select-menu { animation: none; }
+}

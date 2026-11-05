@@ -33,6 +33,11 @@ select {
     font: inherit
 }
 
+select option {
+    font-family: var(--sans);
+    font-size: 14px
+}
+
 button {
     cursor: pointer
 }
