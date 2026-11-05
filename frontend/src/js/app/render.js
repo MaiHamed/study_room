@@ -176,7 +176,7 @@
     }
     save();
     searchText = "";
-    filters = { type: "all", subject: "all" };
+    filters = { type: "all", subject: "all", topic: "all" };
     page = "questions";
     notify(
       `${imported.length} question${imported.length === 1 ? "" : "s"} added to your question bank.`,

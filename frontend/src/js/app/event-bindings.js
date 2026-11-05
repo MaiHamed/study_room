@@ -1,12 +1,7 @@
 // Studyroom list, navigation, and input event bindings.
   document.addEventListener("change", (e) => {
     if (e.target.matches("#select-all-questions")) {
-      let qs = db.questions.filter(
-        (q) =>
-          q.text.toLowerCase().includes(searchText.toLowerCase()) &&
-          (filters.type === "all" || q.type === filters.type) &&
-          (filters.subject === "all" || q.subjectId === filters.subject),
-      );
+      let qs = db.questions.filter(questionMatchesFilters);
       qs.forEach((q) =>
         e.target.checked
           ? selectedQuestionIds.add(q.id)
@@ -84,6 +79,11 @@
     }
     if (e.target.matches("#q-subject")) {
       filters.subject = e.target.value;
+      filters.topic = "all";
+      render();
+    }
+    if (e.target.matches("#q-topic")) {
+      filters.topic = e.target.value;
       render();
     }
     if (e.target.matches("#topic-question-filter")) {

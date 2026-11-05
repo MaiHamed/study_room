@@ -29,7 +29,7 @@
     examRun = null,
     flashRun = null,
     searchText = "",
-    filters = { type: "all", subject: "all" },
+    filters = { type: "all", subject: "all", topic: "all" },
     toastTimer,
     subjectViewId = null,
     topicViewName = "",
