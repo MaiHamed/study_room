@@ -1,0 +1,3552 @@
+(() => {
+  const KEY = "studyroom.v1";
+  const blank = () => ({
+    subjects: [],
+    questions: [],
+    cards: [],
+    exams: [],
+    attempts: [],
+    reviews: {},
+    importHashes: [],
+    settings: { theme: "midnight", dark: false },
+    activity: [],
+    streak: 0,
+    lastStudy: null,
+  });
+  let db;
+  try {
+    db = { ...blank(), ...JSON.parse(localStorage.getItem(KEY) || "{}") };
+  } catch {
+    db = blank();
+  }
+  let page = "dashboard",
+    modal = null,
+    profilePhotoDraft = null,
+    selectedQuestionIds = new Set(),
+    selectedAttemptIds = new Set(),
+    pendingDeletion = null,
+    deleteBusy = false,
+    examRun = null,
+    flashRun = null,
+    searchText = "",
+    filters = { type: "all", subject: "all" },
+    toastTimer,
+    subjectViewId = null,
+    topicViewName = "",
+    topicQuestionFilter = "all",
+    resultTopicFilter = "",
+    examSetup = { scope: "general", subjectId: "", topic: "" },
+    examManualIds = new Set(),
+    importDraft = {
+      raw: "",
+      questions: [],
+      subjectId: "",
+      topic: "",
+      type: "auto",
+      hash: "",
+      duplicate: false,
+      ...(db.importDraft || {}),
+    },
+    importSaveTimer,
+    subjectPickerSearch = "",
+    subjectPickerSearchTimer;
+  const $ = (s, r = document) => r.querySelector(s),
+    $$ = (s, r = document) => [...r.querySelectorAll(s)],
+    esc = (s) =>
+      String(s ?? "").replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[c],
+      );
+  // Keep the stored value as the editable source; only create escaped display HTML here.
+  function mathHtml(value) {
+    let source = String(value ?? "");
+    // Convert only recognizable plain-text math patterns. A lone underscore/caret is left alone.
+    if (!source.includes("\\(") && !source.includes("\\["))
+      source = source.replace(
+        /(^|[^\\\w])((?:gcd|lcm|sin|cos|tan|log|lim)\s*\([^\n()]*\)\s*(?:=|≤|≥|<|>)\s*[^\n,;]+|[A-Za-zΑ-Ωα-ω][A-Za-zΑ-Ωα-ω0-9]*\s*(?:\^\{[^}]+\}|\^\w+|_\{[^}]+\}|_[A-Za-z0-9]+)(?:\s*(?:[+−=×*\/<>≤≥]|mod)\s*[A-Za-z0-9{}()]+)*|sqrt\([^\n()]+\)|\d+\s*[×*]\s*\d+\s*mod\s*\d+|\b\w+\s*\/\s*\w+)(?=$|[^\\\w])/g,
+        (all, before, expr) =>
+          before + `\\(${expr.trim().replace(/\s+/g, " ")}\\)`,
+      );
+    // Keep each TeX expression in one text node so MathJax can recognize delimiters
+    // even when a pasted display equation spans several lines.
+    return esc(source)
+      .split(/(\\\[[\s\S]*?\\\]|\\\([\s\S]*?\\\))/g)
+      .map((part, i) => (i % 2 ? part : part.replace(/\n/g, "<br>")))
+      .join("");
+  }
+  function hasUnbalancedMathDelimiters(value) {
+    const source = String(value ?? "");
+    return (
+      (source.match(/\\\(/g) || []).length !==
+        (source.match(/\\\)/g) || []).length ||
+      (source.match(/\\\[/g) || []).length !==
+        (source.match(/\\\]/g) || []).length
+    );
+  }
+  function hasMath(value) {
+    const source = String(value ?? ""),
+      plain = esc(source).replace(/\n/g, "<br>");
+    return (
+      /\\\(|\\\[|\\(?:frac|sqrt|sum|prod|int|lim|cdot|times|div|pm|leq|geq|neq|alpha|beta|theta|pi)\b/.test(
+        source,
+      ) || mathHtml(source) !== plain
+    );
+  }
+  function updateMathPreview(preview, value) {
+    window.MathJax?.typesetClear?.([preview]);
+    preview.innerHTML = mathHtml(value);
+    const box = preview.closest(".math-preview");
+    if (box) box.hidden = !hasMath(value);
+    if (hasMath(value)) renderMath(preview);
+  }
+  function renderMath(root = document) {
+    if (window.MathJax?.typesetPromise) {
+      window.MathJax.typesetClear?.([root]);
+      window.MathJax.typesetPromise([root]).catch(() => {});
+    }
+  }
+  window.addEventListener("load", () => renderMath($("#view")));
+  const uid = () => Math.random().toString(36).slice(2, 10),
+    save = () => localStorage.setItem(KEY, JSON.stringify(db)),
+    today = () => new Date().toISOString().slice(0, 10),
+    fmtDate = (s) =>
+      new Date(s).toLocaleDateString(undefined, {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+  function touch() {
+    const t = today();
+    if (db.lastStudy !== t) {
+      let y = new Date();
+      y.setDate(y.getDate() - 1);
+      db.streak =
+        db.lastStudy === y.toISOString().slice(0, 10)
+          ? (db.streak || 0) + 1
+          : 1;
+      db.lastStudy = t;
+    }
+    db.activity.unshift({
+      date: new Date().toISOString(),
+      text: "Studied in Studyroom",
+    });
+    db.activity = db.activity.slice(0, 30);
+    save();
+  }
+  function persistImportDraft() {
+    db.importDraft = JSON.parse(JSON.stringify(importDraft));
+    clearTimeout(importSaveTimer);
+    importSaveTimer = setTimeout(save, 250);
+  }
+  const subjectName = (id) =>
+    db.subjects.find((s) => s.id === id)?.name || "Unsorted";
+  const topicList = (subject) => (subject?.topics || []).filter(Boolean);
+  const topicAliases = (subject) =>
+    (subject?.topicAliases || [])
+      .filter((x) => x.to === topicViewName)
+      .map((x) => x.from);
+  const topicMatches = (q, subject, topic) =>
+    q.subjectId === subject?.id &&
+    (q.topic === topic ||
+      (subject?.topicAliases || []).some(
+        (x) => x.from === q.topic && x.to === topic,
+      ));
+  function metrics() {
+    const done = db.attempts.filter((a) => a.submittedAt),
+      scores = done.map((a) => (a.score / a.questions.length) * 100);
+    return {
+      avg: scores.length
+        ? Math.round(scores.reduce((x, y) => x + y, 0) / scores.length)
+        : 0,
+      answered: done.reduce((n, a) => n + a.questions.length, 0),
+      cards: db.cards.length,
+    };
+  }
+  function difficulty(q) {
+    const r = db.reviews[q.id] || { wrong: 0, correct: 0 };
+    let n = r.wrong + r.correct;
+    if (!n) return "New";
+    if (r.wrong >= 3 || r.wrong / n >= 0.6) return "Hard";
+    if (r.wrong / n >= 0.3) return "Medium";
+    return "Easy";
+  }
+  const nav = [
+    ["dashboard", "layout-dashboard", "Dashboard"],
+    ["subjects", "book-open", "My Subjects"],
+    ["questions", "library", "Question Bank"],
+    ["smart-import", "upload", "Smart Import"],
+    ["create-exam", "file-plus-2", "Create Exam"],
+    ["exams", "clipboard-list", "My Exams"],
+    ["flashcards", "layers-3", "Flashcards"],
+    ["mistakes", "brain", "My Mistakes"],
+    ["statistics", "bar-chart-3", "Statistics"],
+    ["settings", "settings-2", "Settings"],
+  ];
+  const themes = [
+    {
+      id: "midnight",
+      name: "Midnight Purple",
+      note: "Calm charcoal with a violet glow.",
+      light: ["#f5f2f8", "#fff", "#302b38", "#76609b", "#eae3f3"],
+      dark: ["#19171f", "#24212c", "#f3eef9", "#c5a9f4", "#373043"],
+    },
+    {
+      id: "ocean",
+      name: "Ocean Blue",
+      note: "Deep navy and refreshing blue.",
+      light: ["#eff5f8", "#fff", "#263640", "#397e9c", "#dcecf3"],
+      dark: ["#111d25", "#1b2a34", "#edf6fa", "#78c5e3", "#263c49"],
+    },
+    {
+      id: "emerald",
+      name: "Emerald",
+      note: "Forest greens with mint highlights.",
+      light: ["#f0f6f1", "#fff", "#2c3b31", "#3e8460", "#deeee2"],
+      dark: ["#152019", "#202d24", "#eef7ef", "#76d49b", "#2d4435"],
+    },
+    {
+      id: "rose",
+      name: "Rose",
+      note: "Soft blush with muted burgundy.",
+      light: ["#faf1f2", "#fff", "#433136", "#a6536c", "#f3e1e6"],
+      dark: ["#24191e", "#332329", "#f8edf0", "#e89bb2", "#493039"],
+    },
+    {
+      id: "sunset",
+      name: "Sunset",
+      note: "Warm cocoa, caramel, and soft sand.",
+      light: ["#f4ede3", "#fff9f0", "#38291f", "#966b45", "#e4d5c4"],
+      dark: ["#211812", "#30231b", "#f4e9db", "#d0a16f", "#49372b"],
+    },
+    {
+      id: "mono",
+      name: "Monochrome",
+      note: "Quiet, precise, and beautifully neutral.",
+      light: ["#f2f2f2", "#fff", "#292929", "#555", "#e5e5e5"],
+      dark: ["#171717", "#242424", "#f3f3f3", "#d1d1d1", "#363636"],
+    },
+  ];
+  function applyTheme() {
+    const root = document.documentElement,
+      id = themes.some((t) => t.id === db.settings.theme)
+        ? db.settings.theme
+        : "midnight";
+    root.dataset.theme = id;
+    root.dataset.mode = db.settings.dark ? "dark" : "light";
+    document.body.classList.toggle("dark", !!db.settings.dark);
+  }
+  function renderLucideIcons(root = document) {
+    window.lucide?.createIcons({
+      root,
+      attrs: { "stroke-width": 1.8, "aria-hidden": "true" },
+    });
+  }
+  document.addEventListener("DOMContentLoaded", () => renderLucideIcons());
+  function shell() {
+    let inSubjects = page === "subject-detail" || page === "topic-detail";
+    $("#nav").innerHTML = nav
+      .map(
+        ([id, icon, label]) =>
+          `<button data-page="${id}" class="${page === id || (id === "subjects" && inSubjects) ? "active" : ""}" ${page === id || (id === "subjects" && inSubjects) ? 'aria-current="page"' : ""}><span class="nav-icon"><i data-lucide="${icon}"></i></span><span class="nav-label">${label}</span>${id === "mistakes" && mistakeCount() ? `<span class="nav-count">${mistakeCount()}</span>` : ""}</button>`,
+      )
+      .join("");
+    renderLucideIcons($("#nav"));
+    $("#side-streak").textContent = `${db.streak || 0} day streak`;
+    $("#today").textContent = new Date().toLocaleDateString(undefined, {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    });
+    let subj = db.subjects.find((s) => s.id === subjectViewId);
+    $("#crumb").textContent =
+      page === "topic-detail"
+        ? `My Subjects · ${subj?.name || ""} · ${topicViewName}`
+        : page === "subject-detail"
+          ? `My Subjects · ${subj?.name || ""}`
+          : page === "profile"
+            ? "Edit Profile"
+            : nav.find((n) => n[0] === page)?.[2] || "Study session";
+    const avatar = $(".avatar");
+    avatar.innerHTML = avatarMarkup();
+    avatar.title = db.profile?.firstName
+      ? `${db.profile.firstName}’s profile`
+      : "Edit profile";
+    applyTheme();
+  }
+  function avatarMarkup(profile = db.profile || {}) {
+    const name = (profile.firstName || "").trim();
+    return profile.photo
+      ? `<img src="${profile.photo}" alt="">`
+      : name
+        ? esc([...name][0].toLocaleUpperCase())
+        : `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c.5-3.6 3.1-5.5 7-5.5s6.5 1.9 7 5.5"/></svg>`;
+  }
+  function profilePage() {
+    const p = db.profile || {},
+      initials = avatarMarkup(p);
+    return (
+      pageHead(
+        "YOUR ACCOUNT",
+        "Edit profile",
+        "Update the details and photo saved with this Studyroom browser.",
+      ) +
+      `<form id="profile-form" class="panel profile-panel"><div class="profile-photo-block"><div class="profile-photo" id="profile-photo-preview">${initials}</div><div><b>Profile picture</b><p class="page-sub">Choose a square or portrait photo. Images up to 1.5 MB are supported.</p><div class="profile-photo-actions"><label class="btn" for="profile-photo">Upload photo</label><input class="sr-only" id="profile-photo" type="file" accept="image/*"><button class="btn" type="button" data-action="profile-remove-photo" ${p.photo ? "" : "disabled"}>Remove photo</button></div></div></div><div class="form-grid profile-fields"><label class="form-field">First name<input required maxlength="60" autocomplete="given-name" class="field" name="firstName" value="${esc(p.firstName || "")}"></label><label class="form-field">Last name<input maxlength="60" autocomplete="family-name" class="field" name="lastName" value="${esc(p.lastName || "")}"></label><label class="form-field full">Email address<input type="email" maxlength="254" autocomplete="email" class="field" name="email" value="${esc(p.email || "")}"></label></div><div class="profile-actions"><button class="btn" type="button" data-action="profile-cancel">Cancel</button><button class="btn primary" type="submit">Save Changes</button></div></form>`
+    );
+  }
+  function pageHead(eyebrow, title, sub, buttons = "") {
+    return `<div class="page-head"><div><div class="eyebrow">${esc(eyebrow)}</div><h1 class="page-title">${esc(title)}</h1><p class="page-sub">${esc(sub)}</p></div><div class="actions">${buttons}</div></div>`;
+  }
+  function stat(label, value, note, mark) {
+    return `<div class="stat"><div class="stat-label">${label}</div><div class="stat-value">${value}</div><div class="stat-note">${mark || "✦"} &nbsp;${note}</div></div>`;
+  }
+  function dashboard() {
+    let m = metrics(),
+      done = db.attempts.filter((a) => a.submittedAt),
+      recent = done.slice(0, 4);
+    return `${`<div class="welcome"><div><div class="eyebrow">A LITTLE PROGRESS ADDS UP</div><h1>Welcome to your studyroom.</h1><p>Your calm corner to learn, practice, and feel prepared.</p></div><button class="btn primary" data-page="create-exam">＋ Create an exam</button></div>`}<div class="grid stats-grid">${stat("Subjects", db.subjects.length, "Your learning spaces", "▦")}${stat("Questions", db.questions.length, "In your question bank", "☷")}${stat("Flashcards", db.cards.length, "Ready when you are", "▱")}${stat("Exam average", m.avg + "%", `${done.length} attempts completed`, "◌")}</div><div class="grid dashboard-grid"><div class="panel"><div class="panel-head"><h2 class="panel-title">Recent exams</h2><button class="panel-link" data-page="exams">VIEW ALL →</button></div>${recent.length ? recent.map((a) => `<div class="activity-row"><span class="dot" style="background:${a.score / a.questions.length >= 0.7 ? "#9479c6" : "#c5964b"}"></span><div class="row-main"><b>${esc(a.name)}</b><small>${fmtDate(a.submittedAt)} · ${a.questions.length} questions</small></div><div class="row-meta">${Math.round((a.score / a.questions.length) * 100)}%</div></div>`).join("") : `<div class="empty"><div class="empty-icon">◌</div>No exams yet. Your first practice session starts here.</div>`}</div><div class="panel"><div class="panel-head"><h2 class="panel-title">A quick next step</h2></div><div class="quick-grid"><button class="quick" data-page="questions"><span>✎</span><div><b>Add questions</b><small>Build your question bank</small></div></button><button class="quick" data-page="flashcards"><span>▱</span><div><b>Study cards</b><small>Review at your own pace</small></div></button><button class="quick" data-page="mistakes"><span>↗</span><div><b>Review weak spots</b><small>${mistakeCount()} questions to revisit</small></div></button></div></div></div><div class="grid dashboard-grid" style="margin-top:15px"><div class="panel"><div class="panel-head"><h2 class="panel-title">Your subjects</h2><button class="panel-link" data-page="subjects">EXPLORE →</button></div>${
+      db.subjects.length
+        ? db.subjects
+            .slice(0, 4)
+            .map(
+              (s) =>
+                `<div class="activity-row"><span class="dot"></span><div class="row-main"><b>${esc(s.name)}</b><small>${db.questions.filter((q) => q.subjectId === s.id).length} questions · ${db.cards.filter((c) => c.subjectId === s.id).length} cards</small></div><span class="row-meta">→</span></div>`,
+            )
+            .join("")
+        : `<div class="empty">Your subjects will appear here when you create one.</div>`
+    }</div><div class="panel"><div class="panel-head"><h2 class="panel-title">Ready for a reset?</h2></div><p class="page-sub" style="margin:0 0 17px">Short, steady practice makes a difference. Generate a balanced 20-question exam from the topics you choose.</p><button class="btn primary" data-page="create-exam">Set up a practice exam →</button></div></div>`;
+  }
+  function subjects() {
+    return (
+      pageHead(
+        "YOUR LEARNING SPACES",
+        "My subjects",
+        "Choose a subject to explore its topics, materials, and progress.",
+        `<button class="btn primary" data-action="subject-add">＋ New subject</button>`,
+      ) +
+      (db.subjects.length
+        ? `<div class="grid subject-grid">${db.subjects
+            .map((s, i) => {
+              let qs = db.questions.filter((q) => q.subjectId === s.id),
+                cards = db.cards.filter((c) => c.subjectId === s.id),
+                attempts = db.attempts.filter(
+                  (a) => a.submittedAt && a.subjectId === s.id,
+                ),
+                avg = attempts.length
+                  ? Math.round(
+                      attempts.reduce(
+                        (n, a) => n + (a.score / a.questions.length) * 100,
+                        0,
+                      ) / attempts.length,
+                    )
+                  : null,
+                studied = qs.filter(
+                  (q) =>
+                    (db.reviews[q.id]?.correct || 0) +
+                      (db.reviews[q.id]?.wrong || 0) >
+                    0,
+                ).length;
+              return `<article class="card subject-card subject-open" data-action="subject-open" data-id="${s.id}" style="--subject-accent:${esc(s.color || ["#8565b5", "#c08078", "#6486a5", "#bd9558"][i % 4])}"><div class="subject-art"><span>${esc(s.name.slice(0, 1).toUpperCase())}</span><div class="subject-card-actions"><button class="icon-btn" data-action="subject-edit" data-id="${s.id}" title="Edit subject">✎</button><button class="icon-btn" data-action="subject-delete" data-id="${s.id}" title="Delete subject">×</button></div></div><div class="subject-card-meta"><span>${topicList(s).length} topics</span><span>${qs.length} questions</span></div><h3>${esc(s.name)}</h3><p>${esc(s.description || "A space for your study materials.")}</p><div class="subject-progress"><div class="progress"><i style="width:${qs.length ? Math.round((studied / qs.length) * 100) : 0}%"></i></div><small>${qs.length ? Math.round((studied / qs.length) * 100) : 0}% questions practiced</small></div><div class="subject-foot"><span>${cards.length} flashcards</span><span>${avg === null ? "No exams" : `${avg}% exam average`}</span></div><button class="subject-open-link" data-action="subject-open" data-id="${s.id}">Open subject <span>→</span></button></article>`;
+            })
+            .join("")}</div>`
+        : `<div class="panel empty"><div class="empty-icon">▦</div>No subjects yet. Add your first subject to organize study materials.</div>`)
+    );
+  }
+  function topicAttemptStats(subject, topic) {
+    return db.attempts
+      .filter((a) => a.submittedAt && a.subjectId === subject.id)
+      .map((a) => {
+        let items = a.questions
+          .map((q, i) => ({ q, i }))
+          .filter(({ q }) => topicMatches(q, subject, topic));
+        if (!items.length) return null;
+        let correct = items.filter(({ q, i }) =>
+          isCorrect(q, a.answers[i]),
+        ).length;
+        return {
+          attempt: a,
+          score: Math.round((correct / items.length) * 100),
+          count: items.length,
+        };
+      })
+      .filter(Boolean);
+  }
+  function topicProgress(subject, topic) {
+    let qs = db.questions.filter((q) => topicMatches(q, subject, topic));
+    let studied = qs.filter((q) => {
+      let r = db.reviews[q.id] || {};
+      return (r.correct || 0) + (r.wrong || 0) > 0;
+    }).length;
+    return qs.length ? Math.round((studied / qs.length) * 100) : 0;
+  }
+  function breadcrumbs(s, topic = "") {
+    return `<div class="breadcrumbs"><button data-page="subjects">My Subjects</button><span>›</span><button data-action="subject-open" data-id="${s.id}">${esc(s.name)}</button>${topic ? `<span>›</span><b>${esc(topic)}</b>` : ""}</div>`;
+  }
+  function subjectDetail() {
+    let s = db.subjects.find((x) => x.id === subjectViewId);
+    if (!s) {
+      page = "subjects";
+      return subjects();
+    }
+    let qs = db.questions.filter((q) => q.subjectId === s.id),
+      cards = db.cards.filter((c) => c.subjectId === s.id),
+      attempts = db.attempts.filter(
+        (a) => a.submittedAt && a.subjectId === s.id,
+      ),
+      avg = attempts.length
+        ? Math.round(
+            attempts.reduce(
+              (n, a) => n + (a.score / a.questions.length) * 100,
+              0,
+            ) / attempts.length,
+          )
+        : null;
+    let buttons = `<button class="btn" data-action="topic-add" data-id="${s.id}">＋ Add topic</button><button class="btn primary" data-action="subject-exam" data-id="${s.id}">Take subject exam →</button>`;
+    return (
+      pageHead(
+        "SUBJECT OVERVIEW",
+        s.name,
+        s.description || "Explore topics, materials, and your progress.",
+        buttons,
+      ) +
+      breadcrumbs(s) +
+      `<div class="grid stats-grid">${stat("Topics", topicList(s).length, "Organized in this subject", "▦")}${stat("Questions", qs.length, "In this subject", "☷")}${stat("Flashcards", cards.length, "Across all topics", "▱")}${stat("Exam average", avg === null ? "—" : avg + "%", `${attempts.length} attempts`, "◌")}</div><div class="panel topic-section"><div class="panel-head"><div><h2 class="panel-title">Topics</h2><p class="page-sub">Each topic has its own question bank, cards, and exam history.</p></div><button class="panel-link" data-action="topic-add" data-id="${s.id}">＋ ADD TOPIC</button></div>${
+        topicList(s).length
+          ? `<div class="grid topic-grid">${topicList(s)
+              .map((t, i) => {
+                let tq = db.questions.filter((q) => topicMatches(q, s, t)),
+                  tc = db.cards.filter(
+                    (c) => c.subjectId === s.id && c.topic === t,
+                  ),
+                  ta = topicAttemptStats(s, t),
+                  latest = ta[0],
+                  progress = topicProgress(s, t);
+                return `<article class="card topic-card" data-action="topic-open" data-topic="${esc(t)}"><div class="topic-card-top"><span class="topic-number">${String(i + 1).padStart(2, "0")}</span><div class="topic-order"><button class="icon-btn" data-action="topic-up" data-topic="${esc(t)}" data-id="${s.id}" ${i === 0 ? "disabled" : ""} aria-label="Move topic up">↑</button><button class="icon-btn" data-action="topic-down" data-topic="${esc(t)}" data-id="${s.id}" ${i === topicList(s).length - 1 ? "disabled" : ""} aria-label="Move topic down">↓</button></div></div><button class="topic-open-title" data-action="topic-open" data-topic="${esc(t)}">${esc(t)} <span>↗</span></button><p>${esc(s.topicDescriptions?.[t] || "Study questions and flashcards for this topic.")}</p><div class="topic-metrics"><span><b>${tq.length}</b> Questions</span><span><b>${tc.length}</b> Cards</span><span><b>${ta.length}</b> Exams</span></div><div class="progress"><i style="width:${progress}%"></i></div><div class="topic-card-foot"><small>${progress}% practiced · ${latest ? `Latest ${latest.score}%` : "No exam yet"}</small><span><button class="icon-btn" data-action="topic-edit" data-id="${s.id}" data-topic="${esc(t)}" title="Edit topic">✎</button><button class="icon-btn" data-action="topic-delete" data-id="${s.id}" data-topic="${esc(t)}" title="Delete topic">×</button></span></div></article>`;
+              })
+              .join("")}</div>`
+          : `<div class="empty">No topics yet. Add a topic to start organizing this subject.</div>`
+      }</div><div class="panel subject-history"><div class="panel-head"><h2 class="panel-title">Recent subject exams</h2><button class="panel-link" data-page="exams">ALL EXAMS →</button></div>${
+        attempts.length
+          ? attempts
+              .slice(0, 5)
+              .map(
+                (a) =>
+                  `<div class="activity-row"><span class="dot"></span><div class="row-main"><b>${esc(a.name)}</b><small>${fmtDate(a.submittedAt)} · ${a.topicName ? esc(a.topicName) : "Subject-wide"} · ${a.questions.length} questions</small></div><span class="row-meta">${Math.round((a.score / a.questions.length) * 100)}%</span></div>`,
+              )
+              .join("")
+          : `<div class="empty">No completed exams for this subject yet.</div>`
+      }</div>`
+    );
+  }
+  function topicDetail() {
+    let s = db.subjects.find((x) => x.id === subjectViewId),
+      t = topicViewName;
+    if (!s || !topicList(s).includes(t)) {
+      page = "subjects";
+      return subjects();
+    }
+    let qs = db.questions.filter((q) => topicMatches(q, s, t)),
+      cards = db.cards.filter((c) => c.subjectId === s.id && c.topic === t),
+      attempts = topicAttemptStats(s, t),
+      avg = attempts.length
+        ? Math.round(
+            attempts.reduce((n, x) => n + x.score, 0) / attempts.length,
+          )
+        : null,
+      latest = attempts[0],
+      filtered = qs.filter(
+        (q) => topicQuestionFilter === "all" || q.type === topicQuestionFilter,
+      );
+    return (
+      pageHead(
+        "TOPIC STUDY SPACE",
+        t,
+        s.topicDescriptions?.[t] ||
+          `Questions, flashcards, and exam results for ${t}.`,
+        `<button class="btn" data-action="topic-study-all" data-id="${s.id}" data-topic="${esc(t)}">Study flashcards</button><button class="btn primary" data-action="topic-exam" data-id="${s.id}" data-topic="${esc(t)}">Take Exam →</button>`,
+      ) +
+      breadcrumbs(s, t) +
+      `<div class="grid stats-grid">${stat("Questions", qs.length, "In this topic", "☷")}${stat("Flashcards", cards.length, "Ready to study", "▱")}${stat("Exams", attempts.length, "Containing this topic", "▤")}${stat("Average score", avg === null ? "—" : avg + "%", latest ? `Latest ${latest.score}%` : "No exam yet", "◌")}</div><div class="grid dashboard-grid topic-materials"><div class="panel"><div class="panel-head"><div><h2 class="panel-title">Question bank</h2><p class="page-sub">Only questions assigned to ${esc(t)}.</p></div><button class="btn small" data-action="topic-question-add" data-id="${s.id}" data-topic="${esc(t)}">＋ Add question</button></div><div class="toolbar topic-filter"><select id="topic-question-filter" class="field select"><option value="all">All question types</option><option value="mcq" ${topicQuestionFilter === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${topicQuestionFilter === "tf" ? "selected" : ""}>True / False</option><option value="short" ${topicQuestionFilter === "short" ? "selected" : ""}>Short answer</option></select></div>${filtered.length ? `<div class="topic-question-list">${filtered.map(questionCard).join("")}</div>` : `<div class="empty">No ${topicQuestionFilter === "all" ? "" : "matching "}questions in this topic yet.</div>`}</div><div class="panel"><div class="panel-head"><div><h2 class="panel-title">Flashcards</h2><p class="page-sub">${cards.length} cards in this topic.</p></div><button class="btn small" data-action="topic-card-add" data-id="${s.id}" data-topic="${esc(t)}">＋ Add</button></div><div class="topic-card-actions"><button class="btn small" data-action="topic-study-all" data-id="${s.id}" data-topic="${esc(t)}">Study whole deck</button><button class="btn small" data-action="topic-study-selected" data-id="${s.id}" data-topic="${esc(t)}">Study selected</button></div><div class="topic-flashcards">${cards.length ? cards.map((c) => `<div class="topic-flashcard"><label><input type="checkbox" class="topic-card-select" value="${c.id}"><span>${esc(c.front)}</span></label><button class="icon-btn" data-action="card-edit" data-id="${c.id}" title="Edit">✎</button></div>`).join("") : `<div class="empty">No flashcards for this topic yet.</div>`}</div></div></div><div class="panel subject-history"><div class="panel-head"><h2 class="panel-title">Topic exam history</h2><span class="page-sub">Scores count only questions from this topic.</span></div>${
+        attempts.length
+          ? attempts
+              .slice()
+              .reverse()
+              .map(
+                (x) =>
+                  `<div class="activity-row"><span class="dot"></span><div class="row-main"><b>${esc(x.attempt.name)}</b><small>${fmtDate(x.attempt.submittedAt)} · ${x.count} topic questions${x.attempt.topicName ? ` · Topic exam` : " · Subject exam"}</small></div><span class="row-meta">${x.score}%</span><button class="btn small" data-action="result-view" data-id="${x.attempt.id}" data-topic="${esc(t)}">Review</button></div>`,
+              )
+              .join("")
+          : `<div class="empty">No exam attempts include this topic yet.</div>`
+      }</div>`
+    );
+  }
+  function questionCard(q, selectable = false) {
+    let r = db.reviews[q.id] || { wrong: 0, correct: 0 },
+      d = difficulty(q);
+    return `<div class="table-item ${selectable ? `question-bank-row ${selectedQuestionIds.has(q.id) ? "is-selected" : ""}` : ""}">${selectable ? `<label class="row-select" aria-label="Select question"><input type="checkbox" class="question-select" value="${esc(q.id)}" ${selectedQuestionIds.has(q.id) ? "checked" : ""}></label>` : ""}<div class="question-text">${mathHtml(q.text)}${q.explanation ? `<small class="question-explanation">${mathHtml(q.explanation)}</small>` : ""}</div><div>${esc(subjectName(q.subjectId))}</div><div><span class="badge ${d === "Hard" ? "rose" : d === "Medium" ? "warn" : ""}">${d}${r.wrong ? ` · ${r.wrong} misses` : ""}</span></div><div class="row-actions"><button class="icon-btn" data-action="question-edit" data-id="${q.id}" title="Edit">✎</button><button class="icon-btn" data-action="question-duplicate" data-id="${q.id}" title="Duplicate">⧉</button></div></div>`;
+  }
+  function questions() {
+    let qs = db.questions.filter(
+        (q) =>
+          q.text.toLowerCase().includes(searchText.toLowerCase()) &&
+          (filters.type === "all" || q.type === filters.type) &&
+          (filters.subject === "all" || q.subjectId === filters.subject),
+      ),
+      visibleIds = qs.map((q) => q.id),
+      allSelected =
+        visibleIds.length > 0 &&
+        visibleIds.every((id) => selectedQuestionIds.has(id));
+    selectedQuestionIds = new Set(
+      [...selectedQuestionIds].filter((id) =>
+        db.questions.some((q) => q.id === id),
+      ),
+    );
+    return (
+      pageHead(
+        "BUILD YOUR BANK",
+        "Question bank",
+        "Create a reliable library of practice questions.",
+        `<button class="btn" data-page="smart-import">Smart import</button>${db.questions.length ? `<button class="btn danger" data-action="delete-all-questions">Delete all</button>` : ""}<button class="btn primary" data-action="question-add">＋ Add question</button>`,
+      ) +
+      `<div class="toolbar"><input id="q-search" class="search" placeholder="Search questions…" value="${esc(searchText)}"><select id="q-type" class="field select"><option value="all">All types</option><option value="mcq" ${filters.type === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${filters.type === "tf" ? "selected" : ""}>True / False</option><option value="short" ${filters.type === "short" ? "selected" : ""}>Short answer</option></select><select id="q-subject" class="field select"><option value="all">All subjects</option>${db.subjects.map((s) => `<option value="${s.id}" ${filters.subject === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>${selectedQuestionIds.size ? `<div class="selection-bar"><b>${selectedQuestionIds.size} question${selectedQuestionIds.size === 1 ? "" : "s"} selected</b><button class="btn danger" data-action="delete-selected-questions"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2m-6 0 1 11h6l1-11"/></svg>Delete selected</button><button class="btn" data-action="clear-question-selection">Clear selection</button></div>` : ""}<div class="panel table-card">${qs.length ? `<div class="table-head question-table-head"><label><input type="checkbox" id="select-all-questions" ${allSelected ? "checked" : ""} aria-label="Select all displayed questions"></label><div>QUESTION</div><div>SUBJECT</div><div>DIFFICULTY</div><div></div></div>${qs.map((q) => questionCard(q, true)).join("")}` : `<div class="empty">${db.questions.length ? "No questions match those filters." : "Your bank is ready for its first question."}</div>`}</div>`
+    );
+  }
+  function textHash(text) {
+    let h = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      h ^= text.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return (h >>> 0).toString(16);
+  }
+  function refreshImportWarnings(q, index) {
+    q.warnings = q.warnings.filter(
+      (w) =>
+        !w.includes("Question text is missing") &&
+        !w.includes("No correct answer was detected") &&
+        !w.includes("fewer than two choices") &&
+        !w.includes("choices are empty") &&
+        !w.includes("may be a statement"),
+    );
+    if (!q.text.trim()) q.warnings.push("Question text is missing.");
+    if (q.type === "mcq") {
+      if (q.options.length < 2)
+        q.warnings.push(
+          "This multiple-choice question has fewer than two choices.",
+        );
+      if (q.options.some((x) => !x.trim()))
+        q.warnings.push("One or more answer choices are empty.");
+    }
+    if (q.correct === null || q.correct === "")
+      q.warnings.push(
+        "No correct answer was detected. Confirm or add it before using this question in an exam.",
+      );
+    if (q.type === "short" && !/[?؟]$/.test(q.text.trim()) && !q.correct)
+      q.warnings.push(
+        "This may be a statement or an incompletely parsed question.",
+      );
+    let card = $(`[data-import-index="${index}"]`),
+      warning = $(`[data-import-warning="${index}"]`);
+    if (card) {
+      card.classList.toggle("has-warning", q.warnings.length > 0);
+      if (warning) {
+        warning.style.display = q.warnings.length ? "" : "none";
+        warning.innerHTML = q.warnings.length
+          ? `⚑ ${q.warnings.map(esc).join(" · ")}`
+          : "";
+      }
+    }
+  }
+  function parseBulkQuestions(raw) {
+    const lines = raw.replace(/\r/g, "").split("\n"),
+      segments = [],
+      answerLines = [];
+    let current = null,
+      keyMode = false,
+      blankBefore = false,
+      currentSection = "main",
+      lastQuestionNumber = null,
+      numberingSet = 1;
+    const add = (number, text) => {
+      let value = (text || "").trim(),
+        marker =
+          /\(\s*(?:true\s*\/\s*false|true\s+or\s+false|t\s*\/\s*f)\s*\)/i;
+      if (marker.test(value)) {
+        value = value.replace(marker, "").trim();
+        current = {
+          number: number ? String(number) : "",
+          section: currentSection,
+          text: value,
+          prompt: value,
+          unlabeled: [],
+          options: [],
+          labels: [],
+          correct: null,
+          explanation: "",
+          explanationSections: [],
+          type: "tf",
+          warnings: [],
+          selected: true,
+        };
+      } else
+        current = {
+          number: number ? String(number) : "",
+          section: currentSection,
+          text: value,
+          prompt: value,
+          unlabeled: [],
+          options: [],
+          labels: [],
+          correct: null,
+          explanation: "",
+          explanationSections: [],
+          type: "short",
+          warnings: [],
+          selected: true,
+        };
+      segments.push(current);
+    };
+    const addExplanation = (label, text) => {
+      const canonical = label
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+      current.explanationSections.push({
+        label: canonical,
+        text: (text || "").trim(),
+      });
+      current.activeExplanation = current.explanationSections.length - 1;
+      current.inExplanation = true;
+    };
+    const startMatch = (line) => {
+      let m = line.match(
+        /^\s*(?:\*\*)?(?:(?:question|q)\s*)?(\d{1,3})\s*\\?[.)\]:-]\s*(?:\*\*)?\s*(.*)$/i,
+      );
+      if (!m) m = line.match(/^\s*(?:question|q)\s*(\d{1,3})\s+(.*)$/i);
+      if (!m)
+        m = line.match(
+          /^\s*(i{1,3}|iv|v(?:i{1,3})?|viii|ix|x)\s*[.)\]:-]\s*(.*)$/i,
+        );
+      return m;
+    };
+    const optionMatch = (line) =>
+      line.match(
+        /^\s*(?:[-*•]\s*)?(?:\(([A-H])\)|([A-H])\s*[).:-])\s*(.*?)\s*$/i,
+      );
+    for (let rawLine of lines) {
+      let line = rawLine.trim();
+      if (!line) {
+        blankBefore = true;
+        continue;
+      }
+      if (
+        /^(?:answer\s*key|answers|correct\s*answers|solutions)\s*:??\s*$/i.test(
+          line,
+        )
+      ) {
+        keyMode = true;
+        blankBefore = false;
+        continue;
+      }
+      if (keyMode) {
+        answerLines.push(line);
+        continue;
+      }
+      const heading = line.replace(/^#+\s*/, "").trim();
+      const section = heading.match(/^part\s*(\d+)\s*:/i);
+      if (section) currentSection = `part-${section[1]}`;
+      if (
+        /^(?:page\s*)?\d{1,4}(?:\s*(?:of|\/)\s*\d{1,4})?$/i.test(heading) ||
+        /^(?:exam|practice questions?|multiple choice questions?|submit (?:mcq|multiple choice) answers|part\s*\d+\s*[:—-]?\s*(?:true\s*(?:or|and|\/)\s*false|mcq|multiple choice)(?:\s*\(\d+\))?|your true or false test|\d+\s*\/\s*\d+\s*answered)$/i.test(
+          heading,
+        )
+      ) {
+        blankBefore = false;
+        continue;
+      }
+      let numbered = startMatch(line);
+      if (numbered) {
+        const number = Number(numbered[1]),
+          numberingRestart = number === 1 && lastQuestionNumber > 1,
+          explicitQuestion = /^\s*(?:\*\*)?(?:question|q)\s*\d/i.test(line),
+          explanationSubsection =
+            current?.inExplanation &&
+            !numberingRestart &&
+            !explicitQuestion &&
+            Number.isFinite(+numbered[1]) &&
+            Number.isFinite(+current.number) &&
+            +numbered[1] <= +current.number;
+        if (explanationSubsection) {
+          let section = current.explanationSections[current.activeExplanation];
+          if (section) section.text += (section.text ? " " : "") + line;
+          blankBefore = false;
+          continue;
+        }
+        if (numberingRestart) {
+          numberingSet++;
+          currentSection = `${currentSection}-set-${numberingSet}`;
+        }
+        add(numbered[1], numbered[2]);
+        lastQuestionNumber = number;
+        blankBefore = false;
+        continue;
+      }
+      let keyInline = line.match(
+        /^(?:answer\s*key|answers|correct\s+answers)\s*:\s*(.+)$/i,
+      );
+      if (keyInline) {
+        keyMode = true;
+        answerLines.push(keyInline[1]);
+        continue;
+      }
+      if (!current) {
+        add("", line);
+        blankBefore = false;
+        continue;
+      }
+      let tfAnswerLine = line.match(
+        /^\s*(?:\*\*)?(?:(?:correct(?:\s+answer)?|answer)\s*(?::|is)\s*)?(true|false|t|f)(?:\s*[.!])?(?:\*\*)?\s*(.*)$/i,
+      );
+      if (
+        tfAnswerLine &&
+        !/^(?:or|\/)\s*(?:true|false)\b/i.test(tfAnswerLine[2])
+      ) {
+        current.type = "tf";
+        current.answerDeclarations = current.answerDeclarations || [];
+        current.answerDeclarations.push(tfAnswerLine[1]);
+        current.inlineAnswer = tfAnswerLine[1];
+        current.inExplanation = false;
+        if (tfAnswerLine[2].trim())
+          addExplanation("Explanation", tfAnswerLine[2]);
+        blankBefore = false;
+        continue;
+      }
+      let boldInlineAnswer = line.match(
+        /^\s*\*\*\s*(?:correct(?:\s+answer)?|answer)\s*(?::|is)\s*(.*?)\s*\*\*\s*(.*)$/i,
+      );
+      if (boldInlineAnswer) {
+        current.answerDeclarations = current.answerDeclarations || [];
+        current.answerDeclarations.push(boldInlineAnswer[1].trim());
+        current.inlineAnswer = boldInlineAnswer[1].trim();
+        current.inExplanation = false;
+        if (boldInlineAnswer[2].trim())
+          addExplanation("Explanation", boldInlineAnswer[2]);
+        blankBefore = false;
+        continue;
+      }
+      let inlineAnswer = line.match(
+        /^(?:correct(?:\s+answer)?|answer)\s*(?::|is)\s*(.+)$/i,
+      );
+      if (inlineAnswer) {
+        current.answerDeclarations = current.answerDeclarations || [];
+        current.answerDeclarations.push(inlineAnswer[1].trim());
+        current.inlineAnswer = inlineAnswer[1].trim();
+        current.inExplanation = false;
+        blankBefore = false;
+        continue;
+      }
+      let expectedAnswer = line.match(/^expected\s+answer\s*:\s*(.+)$/i);
+      if (expectedAnswer) {
+        current.expectedAnswer = expectedAnswer[1].trim();
+        current.inExplanation = false;
+        blankBefore = false;
+        continue;
+      }
+      // Many pasted True/False exams put the answer alone on the line after the statement.
+      // Capture it before the generic continuation logic can append it to the question text.
+      if (
+        /^(?:true|false)$/i.test(line) &&
+        current.options.length === 0 &&
+        !current.inExplanation &&
+        !current.inlineAnswer
+      ) {
+        current.type = "tf";
+        current.inlineAnswer = line;
+        current.answerDeclarations = [line];
+        blankBefore = false;
+        continue;
+      }
+      let explanation = line.match(
+        /^(explanation|why|reason|note|additional\s+information|correction)\s*(?::|[-–—])\s*(.*)$/i,
+      );
+      if (explanation) {
+        addExplanation(explanation[1].replace(/\s+/g, " "), explanation[2]);
+        blankBefore = false;
+        continue;
+      }
+      let opt = optionMatch(line);
+      if (opt) {
+        current.type = "mcq";
+        current.inExplanation = false;
+        let label = (opt[1] || opt[2]).toUpperCase(),
+          choice = opt[3] || "",
+          marked =
+            /^\s*\*|(?:\(\s*correct\s*\)|\[\s*correct\s*\]|✓|✔|—\s*correct)\s*$/i.test(
+              choice,
+            );
+        choice = choice
+          .replace(/^\s*\*\s*/, "")
+          .replace(
+            /(?:\(\s*correct\s*\)|\[\s*correct\s*\]|✓|✔|—\s*correct)\s*$/i,
+            "",
+          )
+          .trim();
+        if (marked) current.inlineLabel = label;
+        current.labels.push(label);
+        current.options.push(choice);
+        blankBefore = false;
+        continue;
+      }
+      const tfMarker =
+        /\(\s*(?:true\s*\/\s*false|true\s+or\s+false|t\s*\/\s*f)\s*\)/i;
+      if (tfMarker.test(line)) {
+        line = line.replace(tfMarker, "").trim();
+        current.type = "tf";
+        current.text += (current.text ? " " : "") + line;
+        blankBefore = false;
+        continue;
+      }
+      if (
+        (!current.inExplanation &&
+          current.options.length &&
+          /[?？]\s*$/.test(line) &&
+          blankBefore) ||
+        (!current.inExplanation && current.type === "tf" && blankBefore)
+      ) {
+        add("", line);
+        blankBefore = false;
+        continue;
+      }
+      if (
+        current.inExplanation &&
+        current.explanationSections[current.activeExplanation]
+      ) {
+        let section = current.explanationSections[current.activeExplanation];
+        section.text += (section.text ? " " : "") + line;
+      } else if (current.options.length) {
+        current.options[current.options.length - 1] +=
+          (current.options[current.options.length - 1] ? " " : "") + line;
+      } else if (
+        blankBefore &&
+        current.text &&
+        /[?？]\s*$/.test(current.text) &&
+        /[?？]$/.test(line)
+      ) {
+        add("", line);
+      } else {
+        current.text += (current.text ? " " : "") + line;
+        current.unlabeled.push(line);
+      }
+      blankBefore = false;
+    }
+    const answerMap = new Map(),
+      duplicates = new Set();
+    for (const line of answerLines) {
+      let re =
+          /(?:^|\s)(?:Q\s*)?(\d{1,3})\s*[.):\-]?\s*(?:[-=]>?\s*)?([A-H]|true|false|t|f)\b/gi,
+        m;
+      while ((m = re.exec(line))) {
+        let n = m[1];
+        if (answerMap.has(n)) duplicates.add(n);
+        answerMap.set(n, m[2]);
+      }
+    }
+    const seen = new Set();
+    segments.forEach((q, i) => {
+      q.explanation = (q.explanationSections || [])
+        .map((part) => `${part.label}: ${part.text}`.trim())
+        .join("\n\n");
+      if (!q.options.length && q.unlabeled?.length) {
+        const plain = q.unlabeled.map((x) => x.trim()).filter(Boolean);
+        if (
+          plain.length === 2 &&
+          /^true$/i.test(plain[0]) &&
+          /^false$/i.test(plain[1])
+        ) {
+          q.type = "tf";
+          q.text = q.prompt;
+        } else if (plain.length >= 2 && plain.length <= 8) {
+          q.type = "mcq";
+          q.options = plain;
+          q.labels = plain.map((_, j) => String.fromCharCode(65 + j));
+          q.text = q.prompt;
+        }
+      }
+      q.sourceNumber = q.number;
+      if (!q.sourceNumber)
+        q.warnings.push("Question number could not be identified.");
+      q.number = q.number || String(i + 1);
+      let scopedNumber = `${q.section}:${q.number}`;
+      if (seen.has(scopedNumber))
+        q.warnings.push(
+          `Question number ${q.number} is duplicated in this section.`,
+        );
+      seen.add(scopedNumber);
+      if (!q.text) q.warnings.push("Question text is missing.");
+      if (q.options.length) {
+        q.type = "mcq";
+        if (q.inlineLabel) {
+          let markedIndex = q.labels.indexOf(q.inlineLabel);
+          if (markedIndex >= 0) q.correct = markedIndex;
+        }
+        if (q.options.length < 2)
+          q.warnings.push(
+            "This multiple-choice question has fewer than two choices.",
+          );
+        if (q.options.some((x) => !x.trim()))
+          q.warnings.push("One or more answer choices are empty.");
+      }
+      const inline = q.inlineAnswer;
+      const answer = inline || q.expectedAnswer || answerMap.get(q.number);
+      if (answer) {
+        const clean = String(answer).trim().replace(/[.)]$/, "");
+        if (q.type === "short" && /^(true|false|t|f)$/i.test(clean)) {
+          q.type = "tf";
+          q.correct = /^(true|t)$/i.test(clean);
+        } else if (q.type === "mcq") {
+          let label = clean
+            .match(/^(?:option\s*)?([A-H])(?:[).:]|\b)/i)?.[1]
+            ?.toUpperCase();
+          let idx = label
+            ? q.labels.indexOf(label)
+            : Number.isInteger(+clean)
+              ? +clean - 1
+              : -1;
+          if (idx >= 0 && idx < q.options.length) q.correct = idx;
+          else
+            q.warnings.push(
+              "The answer key entry did not match an answer choice.",
+            );
+        } else if (q.type === "tf") {
+          if (/^(true|t)$/i.test(clean)) q.correct = true;
+          else if (/^(false|f)$/i.test(clean)) q.correct = false;
+          else q.warnings.push("The True/False answer was unclear.");
+        } else q.correct = clean;
+      } else if (q.type === "tf" && /\b(?:true|false)\b/i.test(q.text)) {
+        let m = q.text.match(/\b(true|false)\b\s*$/i);
+        if (m) {
+          q.correct = /true/i.test(m[1]);
+          q.text = q.text.replace(/\s*\b(?:true|false)\b\s*$/i, "").trim();
+        }
+      }
+      if (q.type === "short" && q.correct === null) {
+        let expected = q.text.match(
+          /(?:expected\s+answer|answer)\s*:\s*(.+)$/i,
+        );
+        if (expected) {
+          q.correct = expected[1].trim();
+          q.text = q.text.slice(0, expected.index).trim();
+        }
+      }
+      if (q.correct === null)
+        q.warnings.push(
+          "No correct answer was detected. Confirm or add it before using this question in an exam.",
+        );
+      if (
+        !q.text.includes("?") &&
+        !/[؟]$/.test(q.text) &&
+        q.type === "short" &&
+        !q.expectedAnswer &&
+        q.correct === null
+      )
+        q.warnings.push(
+          "This may be a statement or an incompletely parsed question.",
+        );
+      if (duplicates.has(q.number))
+        q.warnings.push(
+          `Answer key contains duplicate entries for ${q.number}.`,
+        );
+      if (q.answerDeclarations?.length > 1) {
+        const labels = q.answerDeclarations
+          .map((a) =>
+            a.match(/^(?:option\s*)?([A-H])(?:[).:]|\b)/i)?.[1]?.toUpperCase(),
+          )
+          .filter(Boolean);
+        if (new Set(labels).size > 1)
+          q.warnings.push(
+            "Repeated correct-answer declarations disagree. The final declaration is selected; review it before importing.",
+          );
+      }
+      if (
+        hasUnbalancedMathDelimiters(
+          q.text + " " + q.options.join(" ") + " " + q.explanation,
+        )
+      )
+        q.warnings.push(
+          "A LaTeX math delimiter may be unmatched. Check the expression in the preview.",
+        );
+      q.id = uid();
+      q.options = q.options.map((x) => x.trim());
+    });
+    if (!segments.length && raw.trim()) {
+      add("", raw.trim());
+      current.warnings.push(
+        "Could not confidently split this text into questions. Review and split it manually.",
+      );
+      current.id = uid();
+      current.number = "1";
+    }
+    return segments;
+  }
+  function smartImport() {
+    return (
+      pageHead(
+        "BULK QUESTION IMPORT",
+        "Smart question import",
+        "Paste a whole exam or set of notes. The local parser separates questions and choices; it never invents a correct answer.",
+        `<button class="btn" data-page="questions">Back to question bank</button>`,
+      ) +
+      `<div class="panel import-source"><div class="import-intro"><div class="import-icon">✦</div><div><h2 class="panel-title">Paste your study material</h2><p class="page-sub">Add 5, 20, 50, or 100 questions at once. Numbered questions, A–D choices, True/False markers, and answer keys are recognized. AI parsing is not connected here; uncertain content will be flagged for review.</p></div></div><label class="form-field">Question text<textarea id="import-raw" class="field import-textarea" placeholder="Paste questions, choices, answer keys, and explanations here…">${esc(importDraft.raw)}</textarea></label><div class="form-grid import-settings"><label class="form-field">Subject<select id="import-subject" class="field" required><option value="">Unsorted</option>${db.subjects.map((s) => `<option value="${s.id}" ${importDraft.subjectId === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select></label><label class="form-field">Topic<select id="import-topic" class="field" required><option value="">Unassigned</option>${topicList(
+        db.subjects.find((s) => s.id === importDraft.subjectId),
+      )
+        .map(
+          (t) =>
+            `<option value="${esc(t)}" ${importDraft.topic === t ? "selected" : ""}>${esc(t)}</option>`,
+        )
+        .join(
+          "",
+        )}</select></label><label class="form-field">Question type<select id="import-type" class="field"><option value="auto" ${importDraft.type === "auto" ? "selected" : ""}>Detect automatically</option><option value="mcq" ${importDraft.type === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${importDraft.type === "tf" ? "selected" : ""}>True / False</option><option value="short" ${importDraft.type === "short" ? "selected" : ""}>Short answer</option></select></label></div><div class="import-actions"><span class="page-sub">Supports Arabic and English text · your pasted source stays here so you can retry.</span><button class="btn primary" data-action="analyze-import">Analyze & Organize Questions →</button></div></div>`
+    );
+  }
+  function previewImport() {
+    let qs = importDraft.questions,
+      warningCount = qs.reduce((n, q) => n + q.warnings.length, 0);
+    return (
+      pageHead(
+        "CHECK BEFORE SAVING",
+        `${qs.length} question${qs.length === 1 ? "" : "s"} detected`,
+        `${warningCount ? `${warningCount} review note${warningCount === 1 ? "" : "s"} highlighted below.` : "Review the parsed questions, then import all or selected questions."}`,
+        `<button class="btn" data-action="import-back">← Edit pasted text</button><button class="btn primary" data-action="import-all">Import all questions</button>`,
+      ) +
+      `${importDraft.duplicate ? `<div class="import-duplicate"><b>This text looks like an import you’ve already saved.</b> Importing again may create duplicates. Confirm before continuing.</div>` : ""}<div class="import-toolbar"><label><input id="import-select-all" type="checkbox" checked> Select all</label><span>${qs.filter((q) => q.selected).length} selected</span><button class="btn small" data-action="import-add-question">＋ Add a question</button></div><div class="import-preview-list">${qs.map((q, i) => `<article class="panel import-question ${q.warnings.length ? "has-warning" : ""}" draggable="true" data-import-index="${i}"><div class="import-card-head"><span class="drag-handle" title="Drag to reorder">⠿</span><label class="import-select"><input type="checkbox" class="imp-selected" data-index="${i}" ${q.selected ? "checked" : ""}> <b>Question ${i + 1}</b> <small>${q.sourceNumber ? "Source #" + esc(q.sourceNumber) : "Unnumbered"}</small></label><button class="icon-btn" data-action="import-remove-question" data-index="${i}" title="Remove">×</button></div><div class="import-warning" data-import-warning="${i}" ${q.warnings.length ? "" : 'style="display:none"'}>${q.warnings.length ? `⚑ ${q.warnings.map(esc).join(" · ")}` : ""}</div><div class="form-grid"><label class="form-field full">Question text<textarea class="field imp-text" data-index="${i}">${esc(q.text)}</textarea><div class="math-preview" ${hasMath(q.text) ? "" : "hidden"}><b>Math preview</b><div data-math-preview="text-${i}">${mathHtml(q.text)}</div></div></label><label class="form-field">Type<select class="field imp-type" data-index="${i}"><option value="mcq" ${q.type === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${q.type === "tf" ? "selected" : ""}>True / False</option><option value="short" ${q.type === "short" ? "selected" : ""}>Short answer</option></select></label><label class="form-field">Correct answer${q.type === "mcq" ? `<select class="field imp-correct" data-index="${i}"><option value="">Not detected — choose</option>${q.options.map((o, j) => `<option value="${j}" ${q.correct === j ? "selected" : ""}>${String.fromCharCode(65 + j)} · ${esc(o || "(empty option)")}</option>`).join("")}</select>` : q.type === "tf" ? `<select class="field imp-correct" data-index="${i}"><option value="">Not detected — choose</option><option value="true" ${q.correct === true ? "selected" : ""}>True</option><option value="false" ${q.correct === false ? "selected" : ""}>False</option></select>` : `<input class="field imp-correct-text" data-index="${i}" value="${esc(q.correct ?? "")}" placeholder="Expected answer, if provided">`}</label>${q.type === "mcq" ? `<div class="form-field full"><span>Answer choices</span><div class="import-options">${q.options.map((o, j) => `<div class="import-option"><span>${String.fromCharCode(65 + j)}</span><input class="field imp-option" data-index="${i}" data-option="${j}" value="${esc(o)}" aria-label="Choice ${j + 1}"><span class="math-preview" ${hasMath(o) ? "" : "hidden"} data-math-preview="import-option-${i}-${j}">${mathHtml(o)}</span><button class="icon-btn" data-action="import-remove-option" data-index="${i}" data-option="${j}" title="Remove choice">×</button></div>`).join("")}</div><button class="btn small" data-action="import-add-option" data-index="${i}">＋ Add choice</button></div>` : ""}<label class="form-field full">Explanation<textarea class="field imp-explanation" data-index="${i}" placeholder="Optional explanation">${esc(q.explanation)}</textarea><div class="math-preview" ${hasMath(q.explanation) ? "" : "hidden"}><b>Math preview</b><div data-math-preview="explanation-${i}">${mathHtml(q.explanation)}</div></div></label></div></article>`).join("")}</div><div class="import-bottom"><div><button class="btn" data-action="import-back">Return to editing</button> <button class="btn" data-action="import-cancel">Cancel import</button></div><button class="btn primary" data-action="import-selected">Import ${qs.filter((q) => q.selected).length} selected</button></div>`
+    );
+  }
+  function createExam() {
+    let scope = examSetup.scope || "general",
+      subject = db.subjects.find((s) => s.id === examSetup.subjectId),
+      locked = scope !== "general";
+    let context =
+      scope === "topic"
+        ? `Topic exam · ${subject?.name || ""} · ${examSetup.topic}`
+        : scope === "subject"
+          ? `Subject exam · ${subject?.name || ""}`
+          : "Choose subject, topics, types, and exam length.";
+    let subjectField = locked
+      ? `<input type="hidden" name="subject" value="${esc(examSetup.subjectId || "")}"><div class="form-field full"><span>Subject</span><div class="scope-chip">${esc(subject?.name || "Choose a subject")}${scope === "topic" ? ` <span>› ${esc(examSetup.topic)}</span>` : ""}</div></div>`
+      : `<div class="form-field full"><span id="exam-subject-label">Subject</span><div class="subject-picker" data-subject-picker><select class="subject-picker-native" name="subject" tabindex="-1" aria-hidden="true"><option value="">Choose a subject</option>${db.subjects.map((s) => `<option value="${s.id}" ${examSetup.subjectId === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}</select><button class="subject-picker-trigger" type="button" role="combobox" aria-required="true" aria-labelledby="exam-subject-label" aria-haspopup="listbox" aria-controls="exam-subject-options" aria-expanded="false"><span>${esc(subject?.name || "Choose a subject")}</span><i aria-hidden="true">⌄</i></button><div class="subject-picker-menu" id="exam-subject-options" role="listbox" aria-labelledby="exam-subject-label" hidden>${[{ id: "", name: "Choose a subject" }, ...db.subjects].map((s, i) => `<button type="button" class="subject-picker-option${(s.id || "") === (examSetup.subjectId || "") ? " is-selected" : ""}" role="option" data-value="${esc(s.id || "")}" aria-selected="${(s.id || "") === (examSetup.subjectId || "")}" id="exam-subject-option-${i}"><span>${esc(s.name)}</span><b aria-hidden="true">✓</b></button>`).join("")}</div></div></div>`;
+    let countControl =
+      scope === "subject"
+        ? `<div id="exam-topic-choices" class="exam-topic-counts"><span class="page-sub">Choose topics and set a question count for each.</span></div>`
+        : `<div class="form-field"><span>Exam size</span><input class="field" type="number" min="1" name="count" value="20"></div>`;
+    return (
+      pageHead(
+        scope === "topic"
+          ? "TOPIC EXAM"
+          : scope === "subject"
+            ? "SUBJECT EXAM"
+            : "CUSTOM PRACTICE",
+        scope === "topic"
+          ? `Exam: ${examSetup.topic}`
+          : scope === "subject"
+            ? `Exam: ${subject?.name || "Subject"}`
+            : "Create an exam",
+        context,
+        `<button class="btn" data-page="${scope === "topic" || scope === "subject" ? "subjects" : "exams"}">Cancel</button>`,
+      ) +
+      `<div class="panel exam-builder"><form id="exam-form" data-scope="${scope}"><div class="form-grid"><label class="form-field full">Exam name<input required class="field" name="name" value="${esc(scope === "topic" ? `${examSetup.topic} practice` : scope === "subject" ? `${subject?.name || "Subject"} practice` : "Practice exam")}"></label>${subjectField}<div class="form-field full ${scope === "topic" ? "hidden" : ""}" id="exam-topic-area"><span>${scope === "subject" ? "Question count by topic" : "Topics to include"}</span>${scope === "subject" ? countControl : `<div id="topic-choices" class="exam-topic-choices"><span class="page-sub">Choose a subject to load topics.</span></div>`}</div>${scope === "topic" || scope === "general" ? countControl : ""}<div class="form-field full exam-types-field"><span>Question types</span><div class="exam-types"><label class="exam-type-option"><input type="checkbox" name="qtype" value="mcq" checked><span>Multiple Choice</span></label><label class="exam-type-option"><input type="checkbox" name="qtype" value="tf" checked><span>True / False</span></label><label class="exam-type-option"><input type="checkbox" name="qtype" value="short"><span>Short Answer</span></label></div></div><label class="form-field exam-setting-field">Difficulty<select class="field" name="difficulty"><option value="all">Any difficulty</option><option value="New">New</option><option value="Easy">Easy</option><option value="Medium">Medium</option><option value="Hard">Hard</option></select></label><div class="form-field exam-setting-field"><span>Question selection</span><label class="exam-setting-option"><input type="checkbox" name="manual"><span>Choose questions manually</span></label></div><div class="form-field full manual-questions hidden" id="manual-question-area"><span>Available questions</span><div id="manual-question-list"></div></div><div class="exam-options form-field full"><label class="exam-setting-option"><input type="checkbox" name="randomize" checked><span>Randomize question order</span></label><label class="exam-setting-option"><input type="checkbox" name="shuffleChoices"><span>Randomize answer choices</span></label><label class="exam-setting-option"><input type="checkbox" name="allQuestions"><span>Include all eligible questions</span></label></div><label class="form-field">Time limit in minutes<input type="number" min="1" class="field" name="minutes" placeholder="No limit"></label><label class="form-field">Passing score (%)<input type="number" min="1" max="100" class="field" name="pass" placeholder="No pass mark"></label><label class="form-field full">Instructions<textarea class="field" name="instructions" placeholder="Optional note before you begin"></textarea></label></div><div id="exam-availability" class="exam-availability"></div><div class="modal-actions"><button class="btn primary" type="submit">Generate exam →</button></div></form></div>`
+    );
+  }
+  function exams() {
+    let arr = db.attempts.filter((a) => a.submittedAt),
+      ids = arr.map((a) => a.id),
+      allSelected =
+        ids.length > 0 && ids.every((id) => selectedAttemptIds.has(id));
+    selectedAttemptIds = new Set(
+      [...selectedAttemptIds].filter((id) => arr.some((a) => a.id === id)),
+    );
+    return (
+      pageHead(
+        "YOUR PRACTICE HISTORY",
+        "My exams",
+        "Review your attempts and see how your practice is progressing.",
+        `<button class="btn primary" data-page="create-exam">＋ Create exam</button>`,
+      ) +
+      (arr.length
+        ? `${selectedAttemptIds.size ? `<div class="selection-bar"><b>${selectedAttemptIds.size} exam${selectedAttemptIds.size === 1 ? "" : "s"} selected</b><button class="btn danger" data-action="delete-selected-exams"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2m-6 2 1 11h6l1-11"/></svg>Delete selected</button><button class="btn" data-action="clear-exam-selection">Clear selection</button></div>` : ""}<div class="panel table-card"><div class="table-head exam-history-head"><label><input type="checkbox" id="select-all-exams" ${allSelected ? "checked" : ""} aria-label="Select all exams"></label><div>EXAM</div><div>COMPLETED</div><div>SCORE</div><div></div></div>${arr.map((a) => `<div class="table-item exam-history-row ${selectedAttemptIds.has(a.id) ? "is-selected" : ""}"><label class="row-select" aria-label="Select exam"><input type="checkbox" class="attempt-select" value="${esc(a.id)}" ${selectedAttemptIds.has(a.id) ? "checked" : ""}></label><div class="row-main"><b>${esc(a.name)}</b><small>${a.questions.length} question${a.questions.length === 1 ? "" : "s"} · ${a.topicName ? esc(a.topicName) : a.scope === "subject" ? "Subject-wide" : "Custom exam"}</small></div><div>${fmtDate(a.submittedAt)}</div><div><span class="badge ${a.score / a.questions.length < 0.6 ? "warn" : ""}">${Math.round((a.score / a.questions.length) * 100)}%</span></div><div class="row-actions"><button class="btn small" data-action="result-view" data-id="${a.id}">Review</button><button class="icon-btn danger-icon" data-action="ask-delete-exam" data-id="${a.id}" title="Delete exam" aria-label="Delete ${esc(a.name)}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2m-6 2 1 11h6l1-11"/></svg></button></div></div>`).join("")}</div>`
+        : `<div class="panel empty">No completed exams yet. Your saved attempts will live here.</div>`)
+    );
+  }
+  function cardsPage() {
+    return (
+      pageHead(
+        "SMALL CARDS, STEADY PROGRESS",
+        "Flashcards",
+        "Review difficult cards sooner with simple spaced repetition.",
+        `<button class="btn" data-action="smart-revision">Smart revision</button><button class="btn" data-action="card-study">Study due cards</button><button class="btn primary" data-action="card-add">＋ Add card</button>`,
+      ) +
+      `<div class="toolbar"><input class="search" id="card-search" placeholder="Search cards…"><span class="page-sub">${db.cards.filter((c) => !c.due || c.due <= today()).length} due now · ${db.cards.length} total</span></div>${db.cards.length ? `<div class="panel table-card">${db.cards.map((c) => `<div class="table-item" style="grid-template-columns:2fr 1fr 100px 100px"><div class="question-text">${esc(c.front)}</div><div>${esc(subjectName(c.subjectId))}</div><div><span class="badge">${esc(c.interval || 0)} day interval</span></div><div class="row-actions"><button class="icon-btn" data-action="card-edit" data-id="${c.id}">✎</button><button class="icon-btn" data-action="card-delete" data-id="${c.id}">×</button></div></div>`).join("")}</div>` : `<div class="panel empty">No cards yet. Add a card to start building your review deck.</div>`}`
+    );
+  }
+  function mistakeCount() {
+    return Object.entries(db.reviews).filter(
+      ([id, r]) =>
+        db.questions.some((q) => q.id === id) &&
+        r.wrong > 0 &&
+        !r.mastered &&
+        !r.dismissed,
+    ).length;
+  }
+  function mistakes() {
+    let qs = db.questions
+      .filter((q) => {
+        let r = db.reviews[q.id] || {};
+        return r.wrong > 0 && !r.mastered && !r.dismissed;
+      })
+      .sort(
+        (a, b) =>
+          (db.reviews[b.id]?.wrong || 0) - (db.reviews[a.id]?.wrong || 0),
+      );
+    return (
+      pageHead(
+        "LEARN FROM THE MISSES",
+        "My mistakes",
+        "Questions you’ve missed, with the original answer history kept intact.",
+        qs.length
+          ? `<button class="btn primary" data-action="mistake-practice">Practice ${qs.length} questions</button>`
+          : "",
+      ) +
+      (qs.length
+        ? `<div class="panel table-card">${qs
+            .map((q) => {
+              let r = db.reviews[q.id];
+              return `<div class="table-item" style="grid-template-columns:2fr 1fr 100px 140px"><div class="question-text">${mathHtml(q.text)}</div><div>${esc(subjectName(q.subjectId))}</div><div><span class="badge rose">${r.wrong} ${r.wrong === 1 ? "miss" : "misses"}</span></div><div class="row-actions"><button class="icon-btn" data-action="mistake-master" data-id="${q.id}">✓ Master</button><button class="icon-btn" data-action="mistake-dismiss" data-id="${q.id}">×</button></div></div>`;
+            })
+            .join("")}</div>`
+        : `<div class="panel empty"><div class="empty-icon">✦</div>No open mistakes. Keep going at your own pace.</div>`)
+    );
+  }
+  function statistics() {
+    let done = db.attempts.filter((a) => a.submittedAt),
+      bySubject = db.subjects.map((s) => {
+        let as = done.filter((a) => a.subjectId === s.id),
+          pct = as.length
+            ? Math.round(
+                as.reduce(
+                  (x, a) => x + (a.score / a.questions.length) * 100,
+                  0,
+                ) / as.length,
+              )
+            : 0;
+        return [s.name, pct, as.length];
+      });
+    let total = Object.values(db.reviews).reduce(
+        (a, r) => a + r.wrong + r.correct,
+        0,
+      ),
+      wrong = Object.values(db.reviews).reduce((a, r) => a + r.wrong, 0);
+    return (
+      pageHead(
+        "A CLEARER PICTURE",
+        "Statistics",
+        "Use your practice history to decide what to study next.",
+      ) +
+      `<div class="grid stats-grid">${stat("Exam average", metrics().avg + "%", `${done.length} completed exams`, "◌")}${stat("Questions answered", total, "Across all saved attempts", "☷")}${stat("Incorrect answers", wrong, `${total ? Math.round((wrong / total) * 100) : 0}% of tracked responses`, "↗")}${stat("Study streak", `${db.streak || 0} days`, "Keep your rhythm gentle", "✦")}</div><div class="grid dashboard-grid"><div class="panel"><div class="panel-head"><h2 class="panel-title">Performance by subject</h2></div>${bySubject.length ? bySubject.map(([name, pct, n]) => `<div class="bar-row"><span>${esc(name)}</span><div class="progress"><i style="width:${pct}%"></i></div><b>${n ? pct + "%" : "—"}</b></div>`).join("") : `<div class="empty">Add subjects and complete an exam to see performance here.</div>`}</div><div class="panel"><div class="panel-head"><h2 class="panel-title">Topics to revisit</h2></div>${
+        db.questions
+          .map((q) => ({ q, r: db.reviews[q.id] || { wrong: 0 } }))
+          .filter((x) => x.r.wrong)
+          .sort((a, b) => b.r.wrong - a.r.wrong)
+          .slice(0, 5)
+          .map(
+            ({ q, r }) =>
+              `<div class="activity-row"><span class="dot" style="background:#bf766d"></span><div class="row-main"><b>${mathHtml(q.text)}</b><small>${esc(subjectName(q.subjectId))}</small></div><span class="row-meta">${r.wrong}×</span></div>`,
+          )
+          .join("") ||
+        `<div class="empty">Question patterns will appear after your first exam.</div>`
+      }</div></div>`
+    );
+  }
+  function settings() {
+    const active = themes.find((t) => t.id === db.settings.theme) || themes[0],
+      dark = !!db.settings.dark;
+    return (
+      pageHead(
+        "YOUR STUDYROOM",
+        "Settings",
+        "Make your study space feel like yours and keep your data safe.",
+      ) +
+      `<section class="theme-section"><div class="theme-section-head"><div><div class="eyebrow">PERSONALIZE YOUR SPACE</div><h2 class="panel-title">Appearance &amp; Themes</h2><p class="page-sub">Choose a palette, then switch between its light and dark appearance.</p></div><div class="mode-switch" role="group" aria-label="Color mode"><button type="button" data-mode-choice="light" aria-pressed="${!dark}"><span>☀</span> Light</button><button type="button" data-mode-choice="dark" aria-pressed="${dark}"><span>☾</span> Dark</button></div></div><div class="theme-grid">${themes
+        .map((theme) => {
+          const colors = dark ? theme.dark : theme.light,
+            selected = theme.id === active.id;
+          return `<button type="button" class="theme-card ${selected ? "is-selected" : ""}" data-theme-choice="${theme.id}" aria-pressed="${selected}" aria-label="${theme.name}${selected ? ", selected" : ""}"><span class="theme-preview" style="--pv-bg:${colors[0]};--pv-paper:${colors[1]};--pv-ink:${colors[2]};--pv-accent:${colors[3]};--pv-line:${colors[4]}"><span class="pv-sidebar"><i></i><i></i><i></i></span><span class="pv-main"><i class="pv-top"></i><i class="pv-title"></i><i class="pv-card"><b></b><b></b><em></em></i><i class="pv-input"></i><i class="pv-button"></i></span><span class="theme-check">✓</span></span><span class="theme-info"><span><b>${theme.name}</b><small>${theme.note}</small></span><span class="theme-swatches" aria-hidden="true"><i style="--sw:${colors[3]}"></i><i style="--sw:${colors[4]}"></i><i style="--sw:${colors[2]}"></i></span></span></button>`;
+        })
+        .join(
+          "",
+        )}</div><p class="theme-current" aria-live="polite">Currently using <b>${active.name} · ${dark ? "Dark" : "Light"}</b></p></section><div class="panel settings-data-panel"><h2 class="panel-title">Your data</h2><p class="page-sub" style="margin:8px 0 18px">Your materials and study history are stored in this browser.</p><div class="actions"><button class="btn" data-action="export">Export backup</button><button class="btn" data-action="import">Restore backup</button><button class="btn danger" data-action="clear-data">Clear all data</button></div></div>`
+    );
+  }
+  let customSelectId = 0,
+    appSelectSearch = "",
+    appSelectSearchTimer;
+  function refreshCustomSelect(select) {
+    if (!select || select.matches(".subject-picker-native, [multiple], [size]"))
+      return;
+    let host = select.parentElement,
+      wrapper = select.closest(".app-select");
+    if (!wrapper) {
+      wrapper = document.createElement("div");
+      wrapper.className = "app-select";
+      select.before(wrapper);
+      wrapper.append(select);
+      let trigger = document.createElement("button");
+      trigger.type = "button";
+      trigger.className = "app-select-trigger";
+      trigger.setAttribute("role", "combobox");
+      trigger.setAttribute("aria-haspopup", "listbox");
+      trigger.setAttribute("aria-expanded", "false");
+      let selectId = ++customSelectId,
+        label = select.labels?.[0],
+        labelId = label?.id;
+      if (!labelId && label) {
+        labelId = `app-select-label-${selectId}`;
+        label.id = labelId;
+      }
+      if (labelId) trigger.setAttribute("aria-labelledby", labelId);
+      else
+        trigger.setAttribute(
+          "aria-label",
+          select.getAttribute("aria-label") ||
+            select.name ||
+            "Choose an option",
+        );
+      let menu = document.createElement("div");
+      menu.className = "app-select-menu";
+      menu.setAttribute("role", "listbox");
+      if (labelId) menu.setAttribute("aria-labelledby", labelId);
+      menu.hidden = true;
+      let menuId = `app-select-list-${selectId}`;
+      menu.id = menuId;
+      trigger.setAttribute("aria-controls", menuId);
+      wrapper.append(trigger, menu);
+      select.classList.add("app-select-native");
+      select.tabIndex = -1;
+      select.setAttribute("aria-hidden", "true");
+    }
+    let trigger = $(".app-select-trigger", wrapper),
+      menu = $(".app-select-menu", wrapper),
+      signature = [...select.options]
+        .map((o) => `${o.value}\u0000${o.textContent}\u0000${o.disabled}`)
+        .join("\u0001");
+    if (menu.dataset.signature !== signature) {
+      menu.replaceChildren();
+      [...select.options].forEach((option, index) => {
+        let item = document.createElement("button");
+        item.type = "button";
+        item.className = "app-select-option";
+        item.setAttribute("role", "option");
+        item.dataset.index = index;
+        item.disabled = option.disabled;
+        item.id = `${menu.id}-option-${index}`;
+        item.setAttribute(
+          "aria-selected",
+          String(option === select.selectedOptions[0]),
+        );
+        let text = document.createElement("span");
+        text.textContent = option.textContent;
+        let check = document.createElement("b");
+        check.textContent = "✓";
+        check.setAttribute("aria-hidden", "true");
+        item.append(text, check);
+        menu.append(item);
+      });
+      menu.dataset.signature = signature;
+    }
+    let selected = select.selectedOptions[0],
+      current = selected?.textContent || "";
+    $("span", trigger)?.remove();
+    let value = document.createElement("span");
+    value.textContent = current;
+    trigger.prepend(value);
+    $$(".app-select-option", menu).forEach((item, index) => {
+      let isSelected = select.options[index] === selected;
+      item.classList.toggle("is-selected", isSelected);
+      item.setAttribute("aria-selected", String(isSelected));
+    });
+  }
+  function refreshCustomSelects(root = document) {
+    $$("select", root).forEach(refreshCustomSelect);
+  }
+  function closeAppSelect(wrapper) {
+    if (!wrapper) return;
+    wrapper.classList.remove("is-open", "opens-up");
+    $(".app-select-trigger", wrapper)?.setAttribute("aria-expanded", "false");
+    $(".app-select-menu", wrapper)?.setAttribute("hidden", "");
+    $(".app-select-trigger", wrapper)?.removeAttribute("aria-activedescendant");
+  }
+  function openAppSelect(wrapper, activeIndex) {
+    let trigger = $(".app-select-trigger", wrapper),
+      menu = $(".app-select-menu", wrapper),
+      items = $$(".app-select-option:not(:disabled)", menu),
+      selected = items.findIndex(
+        (item) => item.getAttribute("aria-selected") === "true",
+      );
+    wrapper.classList.add("is-open");
+    menu.removeAttribute("hidden");
+    let roomBelow = innerHeight - trigger.getBoundingClientRect().bottom;
+    wrapper.classList.toggle(
+      "opens-up",
+      roomBelow < Math.min(menu.scrollHeight, 280) &&
+        trigger.getBoundingClientRect().top > roomBelow,
+    );
+    trigger.setAttribute("aria-expanded", "true");
+    let index = Math.max(
+      0,
+      Math.min(items.length - 1, activeIndex ?? Math.max(0, selected)),
+    );
+    items.forEach((item, i) => item.classList.toggle("is-active", i === index));
+    trigger.setAttribute("aria-activedescendant", items[index]?.id || "");
+    items[index]?.scrollIntoView({ block: "nearest" });
+  }
+  document.addEventListener("click", (e) => {
+    let wrapper = e.target.closest(".app-select");
+    if (!wrapper) {
+      closeAppSelect($(".app-select.is-open"));
+      return;
+    }
+    let trigger = e.target.closest(".app-select-trigger"),
+      item = e.target.closest(".app-select-option");
+    if (trigger)
+      wrapper.classList.contains("is-open")
+        ? closeAppSelect(wrapper)
+        : openAppSelect(wrapper);
+    if (item) {
+      let select = $("select", wrapper),
+        index = +item.dataset.index,
+        triggerButton = $(".app-select-trigger", wrapper);
+      select.selectedIndex = index;
+      refreshCustomSelect(select);
+      closeAppSelect(wrapper);
+      triggerButton?.focus();
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    let trigger = e.target.closest?.(".app-select-trigger");
+    if (!trigger) return;
+    let wrapper = trigger.closest(".app-select"),
+      items = $$(".app-select-option:not(:disabled)", wrapper),
+      active = Math.max(
+        0,
+        items.findIndex((item) => item.classList.contains("is-active")),
+      );
+    if (e.key === "Tab") {
+      closeAppSelect(wrapper);
+      return;
+    }
+    if (e.key === "Escape") {
+      closeAppSelect(wrapper);
+      return;
+    }
+    if (["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+      e.preventDefault();
+      let next =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? items.length - 1
+            : (active + (e.key === "ArrowDown" ? 1 : -1) + items.length) %
+              items.length;
+      openAppSelect(wrapper, next);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (!wrapper.classList.contains("is-open")) openAppSelect(wrapper);
+      else items[active]?.click();
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      appSelectSearch += e.key.toLocaleLowerCase();
+      clearTimeout(appSelectSearchTimer);
+      appSelectSearchTimer = setTimeout(() => {
+        appSelectSearch = "";
+      }, 650);
+      let index = items.findIndex((item) =>
+        $("span", item)
+          .textContent.toLocaleLowerCase()
+          .startsWith(appSelectSearch),
+      );
+      if (index >= 0) openAppSelect(wrapper, index);
+    }
+  });
+  document.addEventListener(
+    "invalid",
+    (e) => {
+      if (e.target.matches("select.app-select-native")) {
+        e.preventDefault();
+        $(".app-select-trigger", e.target.closest(".app-select"))?.focus();
+      }
+    },
+    true,
+  );
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("select:not(.subject-picker-native)")) {
+      requestAnimationFrame(() => refreshCustomSelects($("#view")));
+      requestAnimationFrame(() => refreshCustomSelects($("#modal-root")));
+    }
+  });
+  function render() {
+    shell();
+    let out =
+      page === "dashboard"
+        ? dashboard()
+        : page === "profile"
+          ? profilePage()
+          : page === "subjects"
+            ? subjects()
+            : page === "subject-detail"
+              ? subjectDetail()
+              : page === "topic-detail"
+                ? topicDetail()
+                : page === "questions"
+                  ? questions()
+                  : page === "smart-import"
+                    ? smartImport()
+                    : page === "import-preview"
+                      ? previewImport()
+                      : page === "import-working"
+                        ? `<div class="panel import-progress"><div class="import-icon">✦</div><h2 class="panel-title">Organizing your questions…</h2><p class="page-sub">Checking lines, choices, answer keys, and possible formatting issues.</p><div class="progress"><i></i></div></div>`
+                        : page === "create-exam"
+                          ? createExam()
+                          : page === "exams"
+                            ? exams()
+                            : page === "flashcards"
+                              ? cardsPage()
+                              : page === "mistakes"
+                                ? mistakes()
+                                : page === "statistics"
+                                  ? statistics()
+                                  : page === "settings"
+                                    ? settings()
+                                    : page === "run-exam"
+                                      ? runExam()
+                                      : page === "result"
+                                        ? resultLookup()
+                                        : page === "study-cards"
+                                          ? studyCards()
+                                          : settings();
+    $("#view").innerHTML = out;
+    $("#modal-root").innerHTML = modal || "";
+    refreshCustomSelects($("#view"));
+    refreshCustomSelects($("#modal-root"));
+    renderMath($("#view"));
+    renderMath($("#modal-root"));
+    if (page === "create-exam") refreshExamBuilder();
+  }
+  function notify(s) {
+    let t = $("#toast");
+    t.textContent = s;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => t.classList.remove("show"), 2300);
+  }
+  function analyzeImport() {
+    let raw = $("#import-raw")?.value || importDraft.raw;
+    if (!raw.trim()) {
+      notify("Paste some question text first.");
+      return;
+    }
+    if (!$("#import-subject")?.value || !$("#import-topic")?.value) {
+      notify("Choose a subject and topic before analyzing these questions.");
+      return;
+    }
+    importDraft.raw = raw;
+    importDraft.subjectId = $("#import-subject")?.value || "";
+    importDraft.topic = $("#import-topic")?.value.trim() || "";
+    importDraft.hash = textHash(raw.trim().replace(/\s+/g, " "));
+    importDraft.duplicate = (db.importHashes || []).includes(importDraft.hash);
+    db.importDraft = JSON.parse(JSON.stringify(importDraft));
+    save();
+    let mode = $("#import-type")?.value || "auto";
+    importDraft.type = mode;
+    page = "import-working";
+    render();
+    setTimeout(() => {
+      let found = parseBulkQuestions(raw);
+      if (mode !== "auto")
+        found.forEach((q) => {
+          let previous = q.type;
+          q.type = mode;
+          if (mode === "mcq") {
+            q.options = q.options.length ? q.options : ["", ""];
+            if (previous !== "mcq") q.correct = null;
+            if (
+              q.options.length < 2 &&
+              !q.warnings.some((w) => w.includes("fewer than"))
+            )
+              q.warnings.push(
+                "This multiple-choice question has fewer than two choices.",
+              );
+            if (
+              q.options.some((x) => !x.trim()) &&
+              !q.warnings.some((w) => w.includes("choices are empty"))
+            )
+              q.warnings.push("One or more answer choices are empty.");
+          } else {
+            q.options = [];
+            if (previous !== mode) q.correct = null;
+          }
+          if (
+            q.correct === null &&
+            !q.warnings.some((w) => w.includes("No correct answer"))
+          )
+            q.warnings.push(
+              "No correct answer was detected. Confirm or add it before using this question in an exam.",
+            );
+        });
+      const seenText = new Set();
+      found.forEach((q) => {
+        let normalized = q.text.trim().toLowerCase();
+        if (normalized && seenText.has(normalized))
+          q.warnings.push(
+            "This question text duplicates another question in this import.",
+          );
+        if (normalized) seenText.add(normalized);
+        if (
+          normalized &&
+          db.questions.some(
+            (old) => old.text.trim().toLowerCase() === normalized,
+          )
+        )
+          q.warnings.push(
+            "A question with matching text is already in your bank.",
+          );
+      });
+      importDraft.questions = found;
+      db.importDraft = JSON.parse(JSON.stringify(importDraft));
+      save();
+      page = "import-preview";
+      render();
+    }, 80);
+  }
+  function commitImported(all = false) {
+    let selected = all
+      ? importDraft.questions
+      : importDraft.questions.filter((q) => q.selected);
+    if (!selected.length) {
+      notify("Select at least one question to import.");
+      return;
+    }
+    let repeats = selected.filter((q) =>
+      q.warnings.some(
+        (w) =>
+          w.includes("matching text is already in your bank") ||
+          w.includes("duplicates another question"),
+      ),
+    ).length;
+    if (
+      (importDraft.duplicate || repeats) &&
+      !confirm(
+        `${importDraft.duplicate ? "This pasted text was imported before. " : ""}${repeats ? `${repeats} selected question${repeats === 1 ? "" : "s"} match existing question text. ` : ""}Import anyway?`,
+      )
+    )
+      return;
+    const imported = selected.map((q) => ({
+      id: uid(),
+      text: q.text.trim(),
+      type: q.type,
+      options: q.type === "mcq" ? q.options.map((x) => x.trim()) : [],
+      correct: q.correct,
+      explanation: q.explanation.trim(),
+      subjectId: importDraft.subjectId,
+      topic: importDraft.topic,
+      sourceNumber: q.sourceNumber || q.number,
+      importWarnings: q.warnings,
+    }));
+    db.questions.push(...imported);
+    delete db.importDraft;
+    if (selected.length === importDraft.questions.length) {
+      db.importHashes = db.importHashes || [];
+      if (!db.importHashes.includes(importDraft.hash))
+        db.importHashes.push(importDraft.hash);
+    }
+    save();
+    searchText = "";
+    filters = { type: "all", subject: "all" };
+    page = "questions";
+    notify(
+      `${imported.length} question${imported.length === 1 ? "" : "s"} added to your question bank.`,
+    );
+    render();
+  }
+  function showModal(title, body, submitLabel = "Save") {
+    modal = `<div class="modal-backdrop" data-action="modal-close"><form class="modal" id="modal-form"><h2>${title}</h2>${body}<div class="modal-actions"><button type="button" class="btn" data-action="modal-cancel">Cancel</button><button class="btn primary" type="submit">${submitLabel}</button></div></form></div>`;
+    render();
+  }
+  function showDeleteDialog(kind, ids, stage = 1) {
+    const questionDelete = kind === "questions",
+      examDelete = kind === "exams",
+      allQuestions = kind === "all-questions";
+    const count = ids.length,
+      names = ids
+        .map((id) => db.attempts.find((a) => a.id === id)?.name)
+        .filter(Boolean);
+    pendingDeletion = { kind, ids: [...ids] };
+    let title = allQuestions
+      ? stage === 1
+        ? "Delete the entire question bank?"
+        : "Permanently delete all questions?"
+      : questionDelete
+        ? `Delete ${count} question${count === 1 ? "" : "s"}?`
+        : count === 1
+          ? `Delete “${esc(names[0] || "this exam")}”?`
+          : `Delete ${count} exams?`;
+    let detail = allQuestions
+      ? stage === 1
+        ? `<p>This will permanently delete all ${db.questions.length} questions from your Question Bank. Past exam attempts keep their saved question snapshots.</p><p class="delete-warning">This cannot be undone.</p>`
+        : `<p>You are about to permanently delete all <b>${db.questions.length}</b> questions and their question review history.</p><p class="delete-warning">This action cannot be undone. Existing exam attempts keep their saved question snapshots.</p>`
+      : questionDelete
+        ? `<p>${count} question${count === 1 ? "" : "s"} will be removed from the Question Bank. Past attempts keep their saved copies.</p>`
+        : count === 1
+          ? `<p>This removes the saved attempt and its result for <b>${esc(names[0] || "this exam")}</b>. Questions in your bank will not be deleted.</p>`
+          : `<p>This removes <b>${count}</b> saved exam attempts and results. Questions in your bank will not be deleted.</p>`;
+    let action = allQuestions
+      ? stage === 1
+        ? "delete-all-questions-step2"
+        : "delete-all-questions-final"
+      : questionDelete
+        ? "delete-questions-confirm"
+        : "delete-exams-confirm";
+    let label =
+      allQuestions && stage === 1
+        ? "Continue"
+        : allQuestions
+          ? "Permanently delete all"
+          : questionDelete
+            ? `Delete ${count} question${count === 1 ? "" : "s"}`
+            : `Delete ${count} exam${count === 1 ? "" : "s"}`;
+    modal = `<div class="modal-backdrop" data-action="modal-close"><section class="modal delete-modal" role="alertdialog" aria-modal="true" aria-labelledby="delete-dialog-title"><div class="delete-modal-icon"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 6h12M8 6V4h4v2m-6 2 1 11h6l1-11"/></svg></div><h2 id="delete-dialog-title">${title}</h2>${detail}<div class="modal-actions"><button type="button" class="btn" data-action="modal-cancel">Cancel</button><button type="button" class="btn danger" data-action="${action}" ${deleteBusy ? "disabled" : ""}>${label}</button></div></section></div>`;
+    render();
+  }
+  function commitDeletion(kind, ids) {
+    if (deleteBusy) return;
+    deleteBusy = true;
+    const oldQuestions = db.questions,
+      oldAttempts = db.attempts,
+      oldReviews = db.reviews;
+    try {
+      if (kind === "questions") {
+        const remove = new Set(ids);
+        db.questions = db.questions.filter((q) => !remove.has(q.id));
+        db.reviews = { ...db.reviews };
+        ids.forEach((id) => {
+          delete db.reviews[id];
+          selectedQuestionIds.delete(id);
+        });
+      } else if (kind === "all-questions") {
+        db.questions = [];
+        db.reviews = {};
+        selectedQuestionIds.clear();
+      } else {
+        const remove = new Set(ids);
+        db.attempts = db.attempts.filter((a) => !remove.has(a.id));
+        ids.forEach((id) => selectedAttemptIds.delete(id));
+        if (ids.includes(examRun)) {
+          examRun = null;
+          page = "exams";
+        }
+      }
+      save();
+      modal = null;
+      pendingDeletion = null;
+      deleteBusy = false;
+      render();
+      notify(
+        kind === "all-questions"
+          ? "All questions deleted."
+          : `${ids.length} ${kind === "questions" ? "question" : "exam"}${ids.length === 1 ? "" : "s"} deleted.`,
+      );
+    } catch (err) {
+      db.questions = oldQuestions;
+      db.attempts = oldAttempts;
+      db.reviews = oldReviews;
+      deleteBusy = false;
+      notify("Could not save the deletion. Your data was restored.");
+      showDeleteDialog(
+        kind === "all-questions" ? "all-questions" : kind,
+        ids,
+        kind === "all-questions" ? 2 : 1,
+      );
+    }
+  }
+  function topicOptions(subjectId, selected = "") {
+    let s = db.subjects.find((x) => x.id === subjectId);
+    return `<option value="">Unassigned</option>${topicList(s)
+      .map(
+        (t) =>
+          `<option value="${esc(t)}" ${selected === t ? "selected" : ""}>${esc(t)}</option>`,
+      )
+      .join("")}`;
+  }
+  function updateMaterialTopics(form, subjectId) {
+    let select = form?.querySelector("[name=topic]"),
+      previous = select?.value || "";
+    if (!select) return;
+    select.innerHTML = topicOptions(subjectId, previous);
+    if (
+      previous &&
+      !topicList(db.subjects.find((s) => s.id === subjectId)).includes(previous)
+    )
+      select.value = "";
+  }
+  function updateImportTopics(subjectId) {
+    let select = $("#import-topic"),
+      previous = select?.value || importDraft.topic;
+    if (!select) return;
+    select.innerHTML = `<option value="">Unassigned</option>${topicList(
+      db.subjects.find((s) => s.id === subjectId),
+    )
+      .map(
+        (t) =>
+          `<option value="${esc(t)}" ${t === previous ? "selected" : ""}>${esc(t)}</option>`,
+      )
+      .join("")}`;
+    if (
+      !topicList(db.subjects.find((s) => s.id === subjectId)).includes(previous)
+    )
+      select.value = "";
+    importDraft.topic = select.value;
+    persistImportDraft();
+  }
+  function subjectOptions(selected = "") {
+    return `<option value="">Unsorted</option>${db.subjects.map((s) => `<option value="${s.id}" ${selected === s.id ? "selected" : ""}>${esc(s.name)}</option>`).join("")}`;
+  }
+  function questionForm(q) {
+    q = q || { type: "mcq", options: ["", "", "", ""], correct: 0 };
+    let options = `<div class="form-field full" id="options-wrap" style="${q.type !== "mcq" ? "display:none" : ""}"><span>Answer choices <small>LaTeX is rendered in each preview and in the exam.</small></span>${(q.options?.length ? q.options : ["", "", "", ""]).map((o, i) => `<div class="option-row"><input type="radio" name="correct" value="${i}" ${q.correct === i ? "checked" : ""} aria-label="Mark option ${i + 1} as correct"><input class="field" name="option" value="${esc(o)}" placeholder="Option ${i + 1}" ${q.type === "mcq" ? "required" : ""}><div class="math-preview" ${hasMath(o) ? "" : "hidden"}><b>Choice ${String.fromCharCode(65 + i)} preview</b><div data-math-preview="option-${i}">${mathHtml(o)}</div></div></div>`).join("")}</div>`;
+    return `<div class="form-grid"><label class="form-field full">Question<textarea required class="field" name="text">${esc(q.text || "")}</textarea><div class="math-preview" ${hasMath(q.text || "") ? "" : "hidden"}><b>Math preview</b><div data-math-preview="question">${mathHtml(q.text || "")}</div></div></label><label class="form-field">Type<select class="field" name="type"><option value="mcq" ${q.type === "mcq" ? "selected" : ""}>Multiple choice</option><option value="tf" ${q.type === "tf" ? "selected" : ""}>True / False</option><option value="short" ${q.type === "short" ? "selected" : ""}>Short answer</option></select></label><label class="form-field">Subject<select class="field" required name="subjectId">${subjectOptions(q.subjectId)}</select></label><label class="form-field full">Topic<select class="field" required name="topic">${topicOptions(q.subjectId, q.topic)}</select></label>${options}<label class="form-field full" id="tf-wrap" style="${q.type === "tf" ? "" : "display:none"}">Correct answer<select name="tfcorrect" class="field"><option value="" ${q.correct === null ? "selected" : ""}>Not provided</option><option value="true" ${q.correct === true ? "selected" : ""}>True</option><option value="false" ${q.correct === false ? "selected" : ""}>False</option></select></label><label class="form-field full" id="short-wrap" style="${q.type === "short" ? "" : "display:none"}">Expected answer<input name="shortcorrect" class="field" value="${esc(q.correct ?? "")}" placeholder="Leave blank if not known"><div class="math-preview" ${hasMath(q.correct ?? "") ? "" : "hidden"}><b>Math preview</b><div data-math-preview="correct">${mathHtml(q.correct ?? "")}</div></div></label><label class="form-field full">Explanation<textarea class="field" name="explanation">${esc(q.explanation || "")}</textarea><div class="math-preview" ${hasMath(q.explanation || "") ? "" : "hidden"}><b>Math preview</b><div data-math-preview="explanation">${mathHtml(q.explanation || "")}</div></div></label></div>`;
+  }
+  function cardForm(c = {}) {
+    return `<div class="form-grid"><label class="form-field full">Front<textarea required class="field" name="front">${esc(c.front || "")}</textarea></label><label class="form-field full">Back<textarea required class="field" name="back">${esc(c.back || "")}</textarea></label><label class="form-field">Subject<select class="field" required name="subjectId">${subjectOptions(c.subjectId)}</select></label><label class="form-field">Topic<select class="field" required name="topic">${topicOptions(c.subjectId, c.topic)}</select></label></div>`;
+  }
+  function subjectForm(s = {}) {
+    return `<div class="form-grid"><label class="form-field full">Subject name<input required class="field" name="name" value="${esc(s.name || "")}"></label><label class="form-field full">Description<textarea class="field" name="description">${esc(s.description || "")}</textarea></label><label class="form-field">Accent color<select class="field" name="color"><option value="#8565b5" ${s.color === "#8565b5" ? "selected" : ""}>Violet</option><option value="#c08078" ${s.color === "#c08078" ? "selected" : ""}>Rose</option><option value="#6486a5" ${s.color === "#6486a5" ? "selected" : ""}>Blue</option><option value="#bd9558" ${s.color === "#bd9558" ? "selected" : ""}>Amber</option></select></label><label class="form-field full">Topics <small>Separate initial topics with commas. Manage individual topics from the subject page.</small><input class="field" name="topics" value="${esc((s.topics || []).join(", "))}"></label></div>`;
+  }
+  function topicForm(name = "", description = "") {
+    return `<div class="form-grid"><label class="form-field full">Topic name<input required class="field" name="topicName" value="${esc(name)}"></label><label class="form-field full">Description<textarea class="field" name="topicDescription">${esc(description)}</textarea></label></div>`;
+  }
+  function startAttempt(name, subjectId, questions, opts = {}) {
+    resultTopicFilter = "";
+    let a = {
+      id: uid(),
+      examId: opts.examId || null,
+      name,
+      subjectId,
+      topicName: opts.topicName || null,
+      scope: opts.scope || "general",
+      topicCounts: opts.topicCounts || null,
+      questions: questions.map((q) => JSON.parse(JSON.stringify(q))),
+      answers: Array(questions.length).fill(null),
+      marked: [],
+      startedAt: new Date().toISOString(),
+      minutes: opts.minutes || null,
+      pass: opts.pass || null,
+      instructions: opts.instructions || "",
+      submittedAt: null,
+      score: 0,
+    };
+    db.attempts.unshift(a);
+    save();
+    examRun = a.id;
+    page = "run-exam";
+    render();
+  }
+  function currentAttempt() {
+    return db.attempts.find((a) => a.id === examRun);
+  }
+  function answerLabel(q, a) {
+    if (a === null || a === undefined || a === "") return "No answer";
+    return q.type === "mcq"
+      ? q.options[a]
+      : q.type === "tf"
+        ? a
+          ? "True"
+          : "False"
+        : String(a);
+  }
+  function isCorrect(q, answer) {
+    if (answer === null || answer === undefined || answer === "") return false;
+    if (q.type === "short")
+      return (
+        String(answer).trim().toLocaleLowerCase() ===
+        String(q.correct ?? "")
+          .trim()
+          .toLocaleLowerCase()
+      );
+    return answer === q.correct;
+  }
+  function attemptScore(a) {
+    return a.questions.reduce(
+      (n, q, i) => n + (isCorrect(q, a.answers[i]) ? 1 : 0),
+      0,
+    );
+  }
+  function runExam() {
+    let a = currentAttempt();
+    if (!a) {
+      page = "exams";
+      return exams();
+    }
+    let i = a.current || 0,
+      q = a.questions[i],
+      val = a.answers[i];
+    return `<div class="page-head"><div><div class="eyebrow">${esc(a.name)}</div><h1 class="page-title">Question ${i + 1} <span style="color:var(--muted);font:16px var(--sans)">of ${a.questions.length}</span></h1><p class="page-sub">${esc(subjectName(a.subjectId))}${a.instructions ? " · " + esc(a.instructions) : ""}</p></div><button class="btn" data-action="exam-submit">Submit exam</button></div><div class="progress" style="margin:-12px 0 17px"><i style="width:${((i + 1) / a.questions.length) * 100}%"></i></div><div class="exam-layout"><div class="panel exam-card"><span class="badge">${q.type === "mcq" ? "MULTIPLE CHOICE" : q.type === "tf" ? "TRUE / FALSE" : "SHORT ANSWER"}${q.topic ? " · " + esc(q.topic) : ""}</span><div class="exam-question">${mathHtml(q.text)}</div>${q.type === "mcq" ? q.options.map((o, j) => `<label class="answer-option ${val === j ? "selected" : ""}"><input type="radio" name="answer" value="${j}" ${val === j ? "checked" : ""}>${mathHtml(o)}</label>`).join("") : q.type === "tf" ? [true, false].map((x) => `<label class="answer-option ${val === x ? "selected" : ""}"><input type="radio" name="answer" value="${x}" ${val === x ? "checked" : ""}>${x ? "True" : "False"}</label>`).join("") : `<label class="form-field">Your answer<input class="field" name="answer-text" value="${esc(val || "")}" autocomplete="off"></label>`}<div class="exam-nav"><button class="btn" data-action="exam-prev" ${i === 0 ? "disabled" : ""}>← Previous</button><button class="btn" data-action="exam-mark">${a.marked.includes(i) ? "★ Marked" : "☆ Mark for review"}</button><button class="btn primary" data-action="exam-next">${i === a.questions.length - 1 ? "Finish" : "Next →"}</button></div></div><div class="panel exam-side"><div class="panel-head"><h2 class="panel-title" style="font-size:17px">Question map</h2></div><div class="q-grid">${a.questions.map((_, j) => `<button class="q-num ${j === i ? "current" : ""} ${a.answers[j] !== null ? "done" : ""}" data-action="exam-jump" data-index="${j}">${j + 1}${a.marked.includes(j) ? "★" : ""}</button>`).join("")}</div><p class="page-sub" style="margin-top:15px">${a.answers.filter((x) => x !== null).length} answered · ${a.questions.length - a.answers.filter((x) => x !== null).length} remaining</p>${a.minutes ? `<span class="badge warn" id="timer" data-start="${new Date(a.startedAt).getTime()}" data-minutes="${a.minutes}">⏱ ${a.minutes}:00</span>` : ""}</div></div>`;
+  }
+  function resultPage(a) {
+    let indices = a.questions.map((q, i) => i);
+    if (resultTopicFilter) {
+      const subject = db.subjects.find((s) => s.id === a.subjectId);
+      indices = indices.filter((i) =>
+        topicMatches(a.questions[i], subject, resultTopicFilter),
+      );
+    }
+    if (!indices.length) indices = a.questions.map((q, i) => i);
+    const flagged = new Set(
+      Array.isArray(a.reviewFlags)
+        ? a.reviewFlags
+        : Array.isArray(a.marked)
+          ? a.marked
+          : [],
+    );
+    const flaggedCount = indices.filter((i) => flagged.has(i)).length,
+      unflaggedCount = indices.length - flaggedCount;
+    let correct = indices.filter((i) =>
+        isCorrect(a.questions[i], a.answers[i]),
+      ).length,
+      unanswered = indices.filter(
+        (i) =>
+          a.answers[i] === null ||
+          a.answers[i] === undefined ||
+          a.answers[i] === "",
+      ).length,
+      wrong = indices.length - correct - unanswered,
+      pct = indices.length ? Math.round((correct / indices.length) * 100) : 0;
+    const bookmarkIcon =
+      '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M4 2.5h8v11l-4-2.7-4 2.7z"/></svg>';
+    return `<div style="text-align:center;margin:10px 0 26px"><div class="eyebrow">${resultTopicFilter ? "TOPIC RESULT" : "ATTEMPT COMPLETE"}</div><h1 class="page-title" style="margin-bottom:20px">${esc(a.name)}</h1>${resultTopicFilter ? `<p class="page-sub">${esc(resultTopicFilter)} · ${indices.length} questions in this topic</p>` : ""}<div class="result-review-summary flag-summary"><div><b>${indices.length}</b><span>Total questions</span></div><div class="is-flagged"><b>${flaggedCount}</b><span>Marked for review</span></div><div><b>${unflaggedCount}</b><span>Not marked for review</span></div></div><div class="result-score" style="--score:${pct * 3.6}deg"><b>${pct}%</b></div><p class="page-sub" style="margin-top:13px">${correct} correct · ${wrong} incorrect · ${unanswered} unanswered${a.pass && !resultTopicFilter ? ` · ${pct >= a.pass ? "Passed" : "Passing score: " + a.pass + "%"}` : ""}</p><div class="actions" style="justify-content:center;margin-top:18px"><button class="btn" data-action="retake-all" data-id="${a.id}">Retake entire exam</button>${wrong ? `<button class="btn" data-action="retake-wrong" data-id="${a.id}">Retry incorrect only</button>` : ""}<button class="btn primary" data-page="exams">Exam history</button></div></div><div class="panel"><div class="panel-head"><h2 class="panel-title">Answer review</h2><button class="panel-link" data-action="review-only" data-id="${a.id}">STUDY ANSWERS</button></div><nav class="review-question-nav" aria-label="Flagged questions">${indices
+      .map((i, n) => {
+        let isFlagged = flagged.has(i);
+        return `<a class="review-nav-item ${isFlagged ? "is-flagged" : "is-unflagged"}" href="#review-question-${i}" aria-label="Question ${n + 1}${isFlagged ? ": Marked for review" : ""}"><span>${n + 1}</span>${isFlagged ? `<i>${bookmarkIcon}</i>` : ""}</a>`;
+      })
+      .join("")}</nav>${indices
+      .map((i) => {
+        let q = a.questions[i],
+          unanswered =
+            a.answers[i] === null ||
+            a.answers[i] === undefined ||
+            a.answers[i] === "",
+          ok = isCorrect(q, a.answers[i]),
+          isFlagged = flagged.has(i);
+        return `<article id="review-question-${i}" class="review-item review-question ${isFlagged ? "is-flagged" : "is-unflagged"}"><div class="review-status-row">${isFlagged ? `<span class="review-status is-flagged">${bookmarkIcon}Marked for Review</span>` : ""}<span class="badge ${ok ? "" : unanswered ? "warn" : "rose"}">${ok ? "Correct" : unanswered ? "Unanswered" : "Wrong"}</span></div><h4>${mathHtml(q.text)}</h4><p><b>Your answer:</b> ${mathHtml(answerLabel(q, a.answers[i]))}</p><p><b>Correct answer:</b> ${mathHtml(answerLabel(q, q.correct))}</p>${q.explanation ? `<p class="page-sub answer-explanation">${mathHtml(q.explanation)}</p>` : ""}</article>`;
+      })
+      .join("")}</div>`;
+  }
+  function resultLookup() {
+    let a = db.attempts.find((a) => a.id === examRun);
+    return a ? resultPage(a) : exams();
+  }
+  function studyCards() {
+    if (!flashRun)
+      return `<div class="panel empty">No active study session.<br><button class="btn primary" data-action="card-study">Start studying</button></div>`;
+    let s = flashRun,
+      c = db.cards.find((x) => x.id === s.ids[s.index]);
+    if (!c)
+      return `<div class="panel empty"><div class="empty-icon">✦</div>Session complete. ${s.rated} cards rated.<br><button class="btn primary" data-page="flashcards">Back to flashcards</button></div>`;
+    return (
+      pageHead(
+        "FLASHCARD STUDY",
+        `Card ${s.index + 1} of ${s.ids.length}`,
+        `${subjectName(c.subjectId)}${c.topic ? " · " + c.topic : ""}`,
+      ) +
+      `<div class="panel flashcard" data-action="flip-card"><div class="flashcard-inner ${s.flipped ? "flashcard-back" : ""}">${esc(s.flipped ? c.back : c.front)}<div class="page-sub" style="margin-top:22px;font:11px var(--sans)">${s.flipped ? "Rate how well you knew this" : "Tap card or press Space to reveal"}</div></div></div>${s.flipped ? `<div class="flash-controls"><button class="rate again" data-action="rate" data-rating="again">Again</button><button class="rate hard" data-action="rate" data-rating="hard">Hard</button><button class="rate good" data-action="rate" data-rating="good">Good</button><button class="rate easy" data-action="rate" data-rating="easy">Easy</button></div>` : `<div class="flash-controls"><button class="btn" data-action="flip-card">Reveal answer · Space</button></div>`}<div class="progress"><i style="width:${(s.index / s.ids.length) * 100}%"></i></div>`
+    );
+  }
+  function submitAttempt(a) {
+    if (!a) return;
+    const unanswered = a.answers.filter((x) => x === null).length;
+    if (
+      unanswered &&
+      !confirm(
+        `You have ${unanswered} unanswered question${unanswered === 1 ? "" : "s"}. Submit anyway?`,
+      )
+    )
+      return;
+    a.reviewFlags = [...(Array.isArray(a.marked) ? a.marked : [])];
+    a.grades = a.questions.map((q, i) => ({
+      awarded: isCorrect(q, a.answers[i]) ? 1 : 0,
+      total: 1,
+      gradedAt: new Date().toISOString(),
+      source: "automatic",
+    }));
+    a.score = attemptScore(a);
+    a.submittedAt = new Date().toISOString();
+    a.duration = Math.max(
+      0,
+      Math.round((Date.now() - new Date(a.startedAt).getTime()) / 60000),
+    );
+    a.questions.forEach((q, i) => {
+      if (a.answers[i] === null) return;
+      let r =
+        db.reviews[q.id] ||
+        (db.reviews[q.id] = {
+          wrong: 0,
+          correct: 0,
+          streak: 0,
+          mastered: false,
+          dismissed: false,
+        });
+      if (isCorrect(q, a.answers[i])) {
+        r.correct++;
+        r.streak++;
+        if (r.streak >= 3) r.mastered = true;
+      } else {
+        r.wrong++;
+        r.streak = 0;
+        r.mastered = false;
+        r.dismissed = false;
+      }
+    });
+    touch();
+    examRun = a.id;
+    page = "result";
+    render();
+  }
+  function exportData() {
+    let b = new Blob([JSON.stringify(db, null, 2)], {
+        type: "application/json",
+      }),
+      u = URL.createObjectURL(b),
+      a = document.createElement("a");
+    a.href = u;
+    a.download = "studyroom-backup.json";
+    a.click();
+    URL.revokeObjectURL(u);
+    notify("Backup downloaded.");
+  }
+  function importData() {
+    let input = document.createElement("input");
+    input.type = "file";
+    input.accept = "application/json";
+    input.onchange = () => {
+      let f = input.files[0];
+      if (!f) return;
+      let rd = new FileReader();
+      rd.onload = () => {
+        try {
+          let d = JSON.parse(rd.result);
+          if (
+            !Array.isArray(d.subjects) ||
+            !Array.isArray(d.questions) ||
+            !Array.isArray(d.attempts)
+          )
+            throw Error();
+          if (
+            confirm("Replace this browser’s Studyroom data with this backup?")
+          ) {
+            db = { ...blank(), ...d };
+            save();
+            render();
+            notify("Backup restored.");
+          }
+        } catch {
+          notify("That backup file could not be read.");
+        }
+      };
+      rd.readAsText(f);
+    };
+    input.click();
+  }
+  function handleAction(el, ev) {
+    let act = el.dataset.action,
+      id = el.dataset.id;
+    if (act === "profile-cancel") {
+      page = "dashboard";
+      profilePhotoDraft = null;
+      render();
+      return;
+    }
+    if (act === "profile-remove-photo") {
+      profilePhotoDraft = "";
+      $("#profile-photo-preview").innerHTML = avatarMarkup({
+        ...db.profile,
+        photo: "",
+      });
+      return;
+    }
+    if (act === "analyze-import") {
+      analyzeImport();
+      return;
+    }
+    if (act === "import-cancel") {
+      importDraft = {
+        raw: "",
+        questions: [],
+        subjectId: "",
+        topic: "",
+        type: "auto",
+        hash: "",
+        duplicate: false,
+      };
+      delete db.importDraft;
+      save();
+      page = "questions";
+      render();
+      return;
+    }
+    if (act === "import-back") {
+      page = "smart-import";
+      render();
+      return;
+    }
+    if (act === "import-all") {
+      commitImported(true);
+      return;
+    }
+    if (act === "import-selected") {
+      commitImported(false);
+      return;
+    }
+    if (act === "import-add-question") {
+      let q = {
+        id: uid(),
+        number: String(importDraft.questions.length + 1),
+        sourceNumber: "",
+        text: "",
+        type: "mcq",
+        options: ["", ""],
+        labels: ["A", "B"],
+        correct: null,
+        explanation: "",
+        warnings: [
+          "Question added manually. Add question text and choices, then choose the correct answer.",
+        ],
+        selected: true,
+      };
+      importDraft.questions.push(q);
+      refreshImportWarnings(q, importDraft.questions.length - 1);
+      persistImportDraft();
+      render();
+      return;
+    }
+    if (act === "import-remove-question") {
+      importDraft.questions.splice(+el.dataset.index, 1);
+      persistImportDraft();
+      render();
+      return;
+    }
+    if (act === "import-add-option") {
+      let i = +el.dataset.index,
+        q = importDraft.questions[i];
+      q.options.push("");
+      refreshImportWarnings(q, i);
+      persistImportDraft();
+      render();
+      return;
+    }
+    if (act === "import-remove-option") {
+      let q = importDraft.questions[+el.dataset.index],
+        n = +el.dataset.option;
+      q.options.splice(n, 1);
+      q.labels.splice(n, 1);
+      if (q.correct === n) q.correct = null;
+      else if (Number.isInteger(q.correct) && q.correct > n) q.correct--;
+      q.warnings = q.warnings.filter((w) => !w.includes("fewer than two"));
+      if (q.options.length < 2)
+        q.warnings.push(
+          "This multiple-choice question has fewer than two choices.",
+        );
+      refreshImportWarnings(q, +el.dataset.index);
+      persistImportDraft();
+      render();
+      return;
+    }
+    if (act === "modal-cancel" || (act === "modal-close" && el === ev.target)) {
+      modal = null;
+      pendingDeletion = null;
+      render();
+      return;
+    }
+    if (act === "ask-delete-question") {
+      showDeleteDialog("questions", [id]);
+      return;
+    }
+    if (act === "ask-delete-exam") {
+      showDeleteDialog("exams", [id]);
+      return;
+    }
+    if (act === "delete-selected-questions") {
+      let ids = [...selectedQuestionIds].filter((qid) =>
+        db.questions.some((q) => q.id === qid),
+      );
+      if (ids.length) showDeleteDialog("questions", ids);
+      return;
+    }
+    if (act === "delete-selected-exams") {
+      let ids = [...selectedAttemptIds].filter((aid) =>
+        db.attempts.some((a) => a.id === aid && a.submittedAt),
+      );
+      if (ids.length) showDeleteDialog("exams", ids);
+      return;
+    }
+    if (act === "delete-all-questions") {
+      if (!db.questions.length) {
+        notify("The Question Bank is already empty.");
+        return;
+      }
+      showDeleteDialog(
+        "all-questions",
+        db.questions.map((q) => q.id),
+        1,
+      );
+      return;
+    }
+    if (act === "delete-all-questions-step2") {
+      showDeleteDialog(
+        "all-questions",
+        db.questions.map((q) => q.id),
+        2,
+      );
+      return;
+    }
+    if (act === "delete-questions-confirm" || act === "delete-exams-confirm") {
+      if (!pendingDeletion || deleteBusy) return;
+      commitDeletion(
+        act === "delete-questions-confirm" ? "questions" : "exams",
+        pendingDeletion.ids,
+      );
+      return;
+    }
+    if (act === "delete-all-questions-final") {
+      if (!pendingDeletion || deleteBusy) return;
+      commitDeletion(
+        "all-questions",
+        db.questions.map((q) => q.id),
+      );
+      return;
+    }
+    if (act === "clear-question-selection") {
+      selectedQuestionIds.clear();
+      render();
+      return;
+    }
+    if (act === "clear-exam-selection") {
+      selectedAttemptIds.clear();
+      render();
+      return;
+    }
+    if (act === "subject-open") {
+      subjectViewId = id;
+      page = "subject-detail";
+      render();
+      return;
+    }
+    if (act === "topic-open") {
+      subjectViewId = id || subjectViewId;
+      topicViewName = el.dataset.topic;
+      topicQuestionFilter = "all";
+      page = "topic-detail";
+      render();
+      return;
+    }
+    if (act === "subject-exam") {
+      examSetup = { scope: "subject", subjectId: id, topic: "" };
+      page = "create-exam";
+      render();
+      return;
+    }
+    if (act === "topic-exam") {
+      examSetup = { scope: "topic", subjectId: id, topic: el.dataset.topic };
+      page = "create-exam";
+      render();
+      return;
+    }
+    if (act === "topic-add") {
+      showModal("Add a topic", topicForm());
+      $("#modal-form").dataset.subject = id;
+      return;
+    }
+    if (act === "topic-edit") {
+      let s = db.subjects.find((x) => x.id === id),
+        t = el.dataset.topic;
+      showModal("Edit topic", topicForm(t, s?.topicDescriptions?.[t] || ""));
+      $("#modal-form").dataset.subject = id;
+      $("#modal-form").dataset.oldTopic = t;
+      return;
+    }
+    if (act === "topic-delete") {
+      let s = db.subjects.find((x) => x.id === id),
+        t = el.dataset.topic;
+      if (
+        confirm(
+          `Delete “${t}”? Its questions and flashcards will move to Unsorted. Past exam attempts remain saved.`,
+        )
+      ) {
+        s.topics = s.topics.filter((x) => x !== t);
+        if (s.topicDescriptions) delete s.topicDescriptions[t];
+        db.questions.forEach((q) => {
+          if (q.subjectId === id && q.topic === t) q.topic = "";
+        });
+        db.cards.forEach((c) => {
+          if (c.subjectId === id && c.topic === t) c.topic = "";
+        });
+        save();
+        render();
+      }
+      return;
+    }
+    if (act === "topic-up" || act === "topic-down") {
+      let s = db.subjects.find((x) => x.id === id),
+        i = s?.topics.indexOf(el.dataset.topic),
+        j = i + (act === "topic-up" ? -1 : 1);
+      if (s && j >= 0 && j < s.topics.length) {
+        [s.topics[i], s.topics[j]] = [s.topics[j], s.topics[i]];
+        save();
+        render();
+      }
+      return;
+    }
+    if (act === "topic-question-add") {
+      showModal(
+        "Add a question",
+        questionForm({
+          type: "mcq",
+          options: ["", "", "", ""],
+          correct: 0,
+          subjectId: id,
+          topic: el.dataset.topic,
+        }),
+      );
+      return;
+    }
+    if (act === "topic-card-add") {
+      showModal(
+        "Create a flashcard",
+        cardForm({ subjectId: id, topic: el.dataset.topic }),
+      );
+      return;
+    }
+    if (act === "topic-study-all" || act === "topic-study-selected") {
+      let ids =
+        act === "topic-study-all"
+          ? db.cards
+              .filter((c) => c.subjectId === id && c.topic === el.dataset.topic)
+              .map((c) => c.id)
+          : $$(".topic-card-select:checked").map((x) => x.value);
+      if (!ids.length) {
+        notify("Select or add flashcards for this topic first.");
+        return;
+      }
+      flashRun = { ids, index: 0, flipped: false, rated: 0 };
+      page = "study-cards";
+      render();
+      return;
+    }
+    if (act === "subject-add") {
+      showModal("Create a subject", subjectForm());
+      return;
+    }
+    if (act === "subject-edit") {
+      let s = db.subjects.find((x) => x.id === id);
+      showModal("Edit subject", subjectForm(s));
+      $("#modal-form").dataset.edit = id;
+      return;
+    }
+    if (act === "subject-delete") {
+      if (
+        confirm(
+          "Delete this subject? Its questions and cards will be kept and moved to Unsorted.",
+        )
+      ) {
+        db.subjects = db.subjects.filter((s) => s.id !== id);
+        db.questions.forEach((q) => {
+          if (q.subjectId === id) q.subjectId = "";
+        });
+        db.cards.forEach((c) => {
+          if (c.subjectId === id) c.subjectId = "";
+        });
+        save();
+        render();
+      }
+      return;
+    }
+    if (act === "question-add") {
+      showModal("Add a question", questionForm());
+      return;
+    }
+    if (act === "question-edit") {
+      let q = db.questions.find((x) => x.id === id);
+      showModal("Edit question", questionForm(q));
+      $("#modal-form").dataset.edit = id;
+      return;
+    }
+    if (act === "question-duplicate") {
+      let q = db.questions.find((x) => x.id === id);
+      db.questions.push({
+        ...JSON.parse(JSON.stringify(q)),
+        id: uid(),
+        text: q.text + " (copy)",
+      });
+      save();
+      render();
+      notify("Question duplicated.");
+      return;
+    }
+    if (act === "question-delete") {
+      showDeleteDialog("questions", [id]);
+      return;
+    }
+    if (act === "card-add") {
+      showModal("Create a flashcard", cardForm());
+      return;
+    }
+    if (act === "card-edit") {
+      let c = db.cards.find((x) => x.id === id);
+      showModal("Edit flashcard", cardForm(c));
+      $("#modal-form").dataset.edit = id;
+      return;
+    }
+    if (act === "card-delete") {
+      if (confirm("Delete this flashcard?")) {
+        db.cards = db.cards.filter((c) => c.id !== id);
+        save();
+        render();
+      }
+      return;
+    }
+    if (act === "import") {
+      importData();
+      return;
+    }
+    if (act === "export") {
+      exportData();
+      return;
+    }
+    if (act === "clear-data") {
+      if (
+        confirm(
+          "Delete all Studyroom data from this browser? This cannot be undone.",
+        )
+      ) {
+        db = blank();
+        save();
+        page = "dashboard";
+        render();
+        notify("Studyroom data cleared.");
+      }
+      return;
+    }
+    if (act === "exam-submit") {
+      submitAttempt(currentAttempt());
+      return;
+    }
+    if (act === "exam-next" || act === "exam-prev" || act === "exam-jump") {
+      let a = currentAttempt();
+      if (act === "exam-next") {
+        if (a.current === a.questions.length - 1) {
+          submitAttempt(a);
+          return;
+        }
+        a.current = (a.current || 0) + 1;
+      } else if (act === "exam-prev")
+        a.current = Math.max(0, (a.current || 0) - 1);
+      else a.current = +el.dataset.index;
+      save();
+      render();
+      return;
+    }
+    if (act === "exam-mark") {
+      let a = currentAttempt(),
+        i = a.current || 0;
+      a.marked.includes(i)
+        ? (a.marked = a.marked.filter((x) => x !== i))
+        : a.marked.push(i);
+      save();
+      render();
+      return;
+    }
+    if (act === "result-view") {
+      examRun = id;
+      resultTopicFilter = el.dataset.topic || "";
+      page = "result";
+      render();
+      return;
+    }
+    if (act === "retake-all") {
+      let old = db.attempts.find((a) => a.id === id);
+      startAttempt(old.name, old.subjectId, old.questions, {
+        examId: old.examId,
+        scope: old.scope,
+        topicName: old.topicName,
+        topicCounts: old.topicCounts,
+        minutes: old.minutes,
+        pass: old.pass,
+        instructions: old.instructions,
+      });
+      return;
+    }
+    if (act === "retake-wrong") {
+      let old = db.attempts.find((a) => a.id === id),
+        subject = db.subjects.find((s) => s.id === old.subjectId),
+        qs = old.questions.filter(
+          (q, i) =>
+            !isCorrect(q, old.answers[i]) &&
+            (!resultTopicFilter || topicMatches(q, subject, resultTopicFilter)),
+        );
+      startAttempt(old.name + " · Incorrect questions", old.subjectId, qs, {
+        pass: old.pass,
+        scope: resultTopicFilter ? "topic" : old.scope,
+        topicName: resultTopicFilter || old.topicName,
+        topicCounts: old.topicCounts,
+      });
+      return;
+    }
+    if (act === "review-only") {
+      let old = db.attempts.find((a) => a.id === id),
+        subject = db.subjects.find((s) => s.id === old.subjectId),
+        reviewQs = old.questions.filter(
+          (q) =>
+            !resultTopicFilter || topicMatches(q, subject, resultTopicFilter),
+        );
+      flashRun = {
+        ids: reviewQs.map((q, i) => {
+          let c = db.cards.find((c) => c.sourceQuestionId === q.id);
+          if (c) return c.id;
+          c = {
+            id: uid(),
+            front: q.text,
+            back:
+              answerLabel(q, q.correct) +
+              (q.explanation ? " — " + q.explanation : ""),
+            subjectId: q.subjectId,
+            topic: q.topic,
+            sourceQuestionId: q.id,
+            due: today(),
+          };
+          db.cards.push(c);
+          return c.id;
+        }),
+        index: 0,
+        flipped: false,
+        rated: 0,
+      };
+      save();
+      page = "study-cards";
+      render();
+      return;
+    }
+    if (act === "card-study") {
+      let due = db.cards.filter((c) => !c.due || c.due <= today());
+      if (!due.length) {
+        notify(
+          db.cards.length
+            ? "You’re all caught up."
+            : "Add a flashcard to start studying.",
+        );
+        return;
+      }
+      flashRun = {
+        ids: due.map((c) => c.id),
+        index: 0,
+        flipped: false,
+        rated: 0,
+      };
+      page = "study-cards";
+      render();
+      return;
+    }
+    if (act === "smart-revision") {
+      let ids = db.cards
+        .filter((c) => ["again", "hard"].includes(c.lastRating))
+        .map((c) => c.id);
+      db.questions
+        .filter((q) => {
+          let r = db.reviews[q.id] || {};
+          return r.wrong > 0 && !r.mastered && !r.dismissed;
+        })
+        .forEach((q) => {
+          let c = db.cards.find((x) => x.sourceQuestionId === q.id);
+          if (!c) {
+            c = {
+              id: uid(),
+              front: q.text,
+              back:
+                answerLabel(q, q.correct) +
+                (q.explanation ? " — " + q.explanation : ""),
+              subjectId: q.subjectId,
+              topic: q.topic,
+              sourceQuestionId: q.id,
+              due: today(),
+              interval: 0,
+              generatedForRevision: true,
+            };
+            db.cards.push(c);
+          }
+          if (!ids.includes(c.id)) ids.push(c.id);
+        });
+      if (!ids.length) {
+        notify(
+          "Nothing to revise yet. Missed questions and Again or Hard cards will collect here.",
+        );
+        return;
+      }
+      save();
+      flashRun = { ids, index: 0, flipped: false, rated: 0 };
+      page = "study-cards";
+      render();
+      return;
+    }
+    if (act === "flip-card") {
+      if (flashRun) {
+        flashRun.flipped = !flashRun.flipped;
+        render();
+      }
+      return;
+    }
+    if (act === "rate") {
+      if (!flashRun) return;
+      let c = db.cards.find((x) => x.id === flashRun.ids[flashRun.index]);
+      let rates = {
+          again: [0, 10],
+          hard: [1, 25],
+          good: [3, 65],
+          easy: [7, 90],
+        },
+        [days, score] = rates[el.dataset.rating];
+      c.interval = Math.max(
+        days,
+        Math.round(
+          (c.interval || 0) *
+            { again: 0.2, hard: 1.2, good: 2, easy: 3 }[el.dataset.rating],
+        ),
+      );
+      c.due = new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+      c.lastRating = el.dataset.rating;
+      c.lastScore = score;
+      flashRun.index++;
+      flashRun.flipped = false;
+      flashRun.rated++;
+      touch();
+      page = "study-cards";
+      render();
+      return;
+    }
+    if (act === "mistake-master") {
+      db.reviews[id].mastered = true;
+      save();
+      render();
+      notify("Marked as mastered.");
+      return;
+    }
+    if (act === "mistake-dismiss") {
+      db.reviews[id].dismissed = true;
+      save();
+      render();
+      return;
+    }
+    if (act === "mistake-practice") {
+      let qs = db.questions.filter((q) => {
+        let r = db.reviews[q.id] || {};
+        return r.wrong && !r.mastered && !r.dismissed;
+      });
+      startAttempt("Mistake practice", qs[0]?.subjectId || "", qs);
+      return;
+    }
+  }
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("#select-all-questions")) {
+      let qs = db.questions.filter(
+        (q) =>
+          q.text.toLowerCase().includes(searchText.toLowerCase()) &&
+          (filters.type === "all" || q.type === filters.type) &&
+          (filters.subject === "all" || q.subjectId === filters.subject),
+      );
+      qs.forEach((q) =>
+        e.target.checked
+          ? selectedQuestionIds.add(q.id)
+          : selectedQuestionIds.delete(q.id),
+      );
+      render();
+    }
+    if (e.target.matches(".question-select")) {
+      e.target.checked
+        ? selectedQuestionIds.add(e.target.value)
+        : selectedQuestionIds.delete(e.target.value);
+      render();
+    }
+    if (e.target.matches("#select-all-exams")) {
+      db.attempts
+        .filter((a) => a.submittedAt)
+        .forEach((a) =>
+          e.target.checked
+            ? selectedAttemptIds.add(a.id)
+            : selectedAttemptIds.delete(a.id),
+        );
+      render();
+    }
+    if (e.target.matches(".attempt-select")) {
+      e.target.checked
+        ? selectedAttemptIds.add(e.target.value)
+        : selectedAttemptIds.delete(e.target.value);
+      render();
+    }
+  });
+  document.addEventListener("click", (e) => {
+    let pageBtn = e.target.closest("[data-page]");
+    if (pageBtn) {
+      page = pageBtn.dataset.page;
+      profilePhotoDraft = null;
+      modal = null;
+      if (page === "exams") {
+        examRun = null;
+        resultTopicFilter = "";
+      }
+      if (page === "create-exam") {
+        examSetup = { scope: "general", subjectId: "", topic: "" };
+        examManualIds.clear();
+      }
+      render();
+      return;
+    }
+    let el = e.target.closest("[data-action]");
+    if (el) {
+      handleAction(el, e);
+      return;
+    }
+    if (e.target.closest("#theme-toggle")) {
+      db.settings.dark = !db.settings.dark;
+      save();
+      render();
+    }
+    if (e.target.closest("#mobile-menu"))
+      $("#nav").closest(".sidebar").classList.toggle("open");
+  });
+  document.addEventListener("click", (e) => {
+    const modeButton = e.target.closest("[data-mode-choice]"),
+      themeButton = e.target.closest("[data-theme-choice]");
+    if (!modeButton && !themeButton) return;
+    if (modeButton) db.settings.dark = modeButton.dataset.modeChoice === "dark";
+    if (themeButton) db.settings.theme = themeButton.dataset.themeChoice;
+    save();
+    applyTheme();
+    if (page === "settings") render();
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("#q-type")) {
+      filters.type = e.target.value;
+      render();
+    }
+    if (e.target.matches("#q-subject")) {
+      filters.subject = e.target.value;
+      render();
+    }
+    if (e.target.matches("#topic-question-filter")) {
+      topicQuestionFilter = e.target.value;
+      render();
+    }
+    if (e.target.matches("#dark-setting")) {
+      db.settings.dark = e.target.checked;
+      save();
+      render();
+    }
+    if (e.target.matches("#exam-form [name=subject]")) {
+      examSetup.subjectId = e.target.value;
+      examManualIds.clear();
+      updateExamTopicChoices(e.target.value);
+    }
+    if (e.target.matches("#modal-form [name=subjectId]"))
+      updateMaterialTopics(e.target.form, e.target.value);
+    if (e.target.matches("#import-subject")) updateImportTopics(e.target.value);
+    if (e.target.matches(".exam-topic-choice")) updateExamAvailability();
+    if (e.target.matches("input[name=manual]")) {
+      examManualIds.clear();
+      updateExamAvailability();
+    }
+    if (e.target.matches(".manual-question-check")) {
+      e.target.checked
+        ? examManualIds.add(e.target.value)
+        : examManualIds.delete(e.target.value);
+      updateExamAvailability();
+    }
+    if (e.target.matches("input[name=answer]")) {
+      let a = currentAttempt();
+      a.answers[a.current || 0] =
+        e.target.value === "true"
+          ? true
+          : e.target.value === "false"
+            ? false
+            : +e.target.value;
+      save();
+      render();
+    }
+    if (e.target.matches("[name=type]")) {
+      let type = e.target.value,
+        opts = $("#options-wrap"),
+        tf = $("#tf-wrap"),
+        sh = $("#short-wrap");
+      if (opts) {
+        opts.style.display = type === "mcq" ? "" : "none";
+        $$("input[name=option]", opts).forEach(
+          (x) => (x.required = type === "mcq"),
+        );
+      }
+      if (tf) tf.style.display = type === "tf" ? "" : "none";
+      if (sh) sh.style.display = type === "short" ? "" : "none";
+    }
+    if (e.target.matches(".imp-selected")) {
+      importDraft.questions[+e.target.dataset.index].selected =
+        e.target.checked;
+      let count = importDraft.questions.filter((q) => q.selected).length;
+      $(".import-toolbar span").textContent = `${count} selected`;
+      $(".import-bottom [data-action=import-selected]").textContent =
+        `Import ${count} selected`;
+    }
+    if (e.target.matches(".imp-type")) {
+      let q = importDraft.questions[+e.target.dataset.index],
+        next = e.target.value;
+      if (next !== q.type) {
+        q.type = next;
+        q.correct = null;
+        q.options =
+          next === "mcq" ? (q.options.length ? q.options : ["", ""]) : [];
+        refreshImportWarnings(q, +e.target.dataset.index);
+        render();
+      }
+    }
+    if (e.target.matches(".imp-correct")) {
+      let q = importDraft.questions[+e.target.dataset.index],
+        v = e.target.value;
+      q.correct = v === "" ? null : q.type === "mcq" ? +v : v === "true";
+      refreshImportWarnings(q, +e.target.dataset.index);
+    }
+    if (e.target.matches("#exam-form .exam-topic-choice"))
+      updateExamAvailability();
+    if (
+      e.target.matches(
+        "#exam-form [name=manual],#exam-form [name=allQuestions],#exam-form [name=qtype],#exam-form [name=difficulty]",
+      )
+    )
+      updateExamAvailability();
+    if (e.target.matches("#import-select-all")) {
+      importDraft.questions.forEach((q) => (q.selected = e.target.checked));
+      $$(".imp-selected").forEach((x) => (x.checked = e.target.checked));
+      $(".import-toolbar span").textContent =
+        `${importDraft.questions.filter((q) => q.selected).length} selected`;
+      $(".import-bottom [data-action=import-selected]").textContent =
+        `Import ${importDraft.questions.filter((q) => q.selected).length} selected`;
+    }
+  });
+  document.addEventListener("input", (e) => {
+    if (
+      e.target.matches(
+        "#modal-form textarea[name=text],#modal-form textarea[name=explanation],#modal-form input[name=shortcorrect],#modal-form input[name=option]",
+      )
+    ) {
+      let name = e.target.name,
+        index =
+          e.target.name === "option"
+            ? [...$$("#modal-form input[name=option]")].indexOf(e.target)
+            : null,
+        key =
+          name === "text"
+            ? "question"
+            : name === "explanation"
+              ? "explanation"
+              : name === "shortcorrect"
+                ? "correct"
+                : `option-${index}`,
+        preview = $(`[data-math-preview="${key}"]`);
+      if (preview) {
+        updateMathPreview(preview, e.target.value);
+      }
+    }
+    if (e.target.matches("#import-raw")) {
+      importDraft.raw = e.target.value;
+      persistImportDraft();
+    }
+    if (e.target.matches("#import-subject")) {
+      importDraft.subjectId = e.target.value;
+      persistImportDraft();
+    }
+    if (e.target.matches("#import-topic")) {
+      importDraft.topic = e.target.value;
+      persistImportDraft();
+    }
+    if (e.target.matches("#import-type")) {
+      importDraft.type = e.target.value;
+      persistImportDraft();
+    }
+    if (e.target.matches(".imp-text")) {
+      let i = +e.target.dataset.index;
+      importDraft.questions[i].text = e.target.value;
+      refreshImportWarnings(importDraft.questions[i], i);
+      let preview = $(`[data-math-preview="text-${i}"]`);
+      if (preview) {
+        updateMathPreview(preview, e.target.value);
+      }
+    }
+    if (e.target.matches(".imp-option")) {
+      let i = +e.target.dataset.index;
+      importDraft.questions[i].options[+e.target.dataset.option] =
+        e.target.value;
+      let preview = $(
+        `[data-math-preview="import-option-${i}-${e.target.dataset.option}"]`,
+      );
+      if (preview) {
+        updateMathPreview(preview, e.target.value);
+      }
+      refreshImportWarnings(importDraft.questions[i], i);
+    }
+    if (e.target.matches(".imp-explanation")) {
+      let i = +e.target.dataset.index;
+      importDraft.questions[i].explanation = e.target.value;
+      let preview = $(`[data-math-preview="explanation-${i}"]`);
+      if (preview) {
+        updateMathPreview(preview, e.target.value);
+      }
+    }
+    if (e.target.matches(".imp-correct-text")) {
+      let i = +e.target.dataset.index;
+      importDraft.questions[i].correct = e.target.value.trim() || null;
+      refreshImportWarnings(importDraft.questions[i], i);
+    }
+    if (e.target.matches("#q-search")) {
+      searchText = e.target.value;
+      let focus = e.target.selectionStart;
+      $("#view").innerHTML = questions();
+      renderMath($("#view"));
+      let n = $("#q-search");
+      n.focus();
+      n.setSelectionRange(focus, focus);
+    }
+    if (e.target.matches("#card-search")) {
+      $$(".table-item").forEach(
+        (row) =>
+          (row.style.display = row.textContent
+            .toLowerCase()
+            .includes(e.target.value.toLowerCase())
+            ? ""
+            : "none"),
+      );
+    }
+    if (e.target.closest(".import-preview-list")) persistImportDraft();
+  });
+  function eligibleExamQuestion(q, types, difficultyLevel) {
+    return (
+      q.correct !== null &&
+      q.correct !== undefined &&
+      types.includes(q.type) &&
+      (difficultyLevel === "all" || difficulty(q) === difficultyLevel)
+    );
+  }
+  function getExamTopics() {
+    if (examSetup.scope === "topic") return [examSetup.topic];
+    return $$(".exam-topic-choice:checked").map((x) => x.value);
+  }
+  function examCandidates() {
+    let form = $("#exam-form");
+    if (!form) return [];
+    let sid = form.elements.subject?.value || examSetup.subjectId,
+      topics = getExamTopics(),
+      types = $$("input[name=qtype]:checked", form).map((x) => x.value),
+      level = form.elements.difficulty?.value || "all";
+    return db.questions.filter((q) => {
+      let inTopic =
+        examSetup.scope === "topic"
+          ? q.topic === examSetup.topic
+          : topics.length
+            ? topics.includes(q.topic)
+            : examSetup.scope === "subject"
+              ? false
+              : q.topic === "";
+      return (
+        q.subjectId === sid && inTopic && eligibleExamQuestion(q, types, level)
+      );
+    });
+  }
+  function updateExamTopicChoices(subjectId) {
+    let subject = db.subjects.find((s) => s.id === subjectId),
+      box = $("#topic-choices"),
+      counts = $("#exam-topic-choices");
+    if (box) {
+      box.innerHTML =
+        subject && topicList(subject).length
+          ? topicList(subject)
+              .map(
+                (t) =>
+                  `<label class="exam-topic-chip"><input type="checkbox" class="exam-topic-choice" value="${esc(t)}" checked> ${esc(t)}</label>`,
+              )
+              .join("")
+          : `<span class="page-sub">This subject has no topics. Questions without a topic remain available in custom practice.</span>`;
+    }
+    if (counts) {
+      counts.innerHTML =
+        subject && topicList(subject).length
+          ? topicList(subject)
+              .map((t) => {
+                let available = db.questions.filter(
+                  (q) =>
+                    topicMatches(q, subject, t) &&
+                    q.correct !== null &&
+                    q.correct !== undefined,
+                ).length;
+                return `<label class="exam-topic-count-row"><input type="checkbox" class="exam-topic-choice" value="${esc(t)}" checked><span>${esc(t)} <small>${available} available</small></span><input class="field topic-count-input" type="number" min="1" max="${Math.max(1, available)}" name="topicCount" data-topic="${esc(t)}" value="${Math.min(5, available) || 1}" aria-label="Questions from ${esc(t)}"></label>`;
+              })
+              .join("")
+          : `<span class="page-sub">Add topics and questions before setting up a subject exam.</span>`;
+    }
+    updateExamAvailability();
+  }
+  function refreshExamBuilder() {
+    let form = $("#exam-form");
+    if (!form) return;
+    if (examSetup.scope === "general" && form.elements.subject.value)
+      updateExamTopicChoices(form.elements.subject.value);
+    else if (examSetup.scope === "subject")
+      updateExamTopicChoices(examSetup.subjectId);
+    updateExamAvailability();
+  }
+  function updateExamAvailability() {
+    let form = $("#exam-form"),
+      box = $("#exam-availability");
+    if (!form || !box) return;
+    let pool = examCandidates(),
+      scope = examSetup.scope,
+      all = form.elements.allQuestions?.checked,
+      amount =
+        scope === "subject"
+          ? $$(".exam-topic-count-row")
+              .filter((x) => $(".exam-topic-choice", x)?.checked)
+              .reduce(
+                (n, row) =>
+                  n +
+                  (all
+                    ? db.questions.filter(
+                        (q) =>
+                          q.subjectId === examSetup.subjectId &&
+                          topicMatches(
+                            q,
+                            db.subjects.find(
+                              (s) => s.id === examSetup.subjectId,
+                            ),
+                            row.querySelector("[name=topicCount]").dataset
+                              .topic,
+                          ) &&
+                          eligibleExamQuestion(
+                            q,
+                            $$("input[name=qtype]:checked", form).map(
+                              (x) => x.value,
+                            ),
+                            form.elements.difficulty.value,
+                          ),
+                      ).length
+                    : +row.querySelector("[name=topicCount]").value || 0),
+                0,
+              )
+          : all
+            ? pool.length
+            : +form.elements.count?.value || 20;
+    let manual = form.elements.manual?.checked,
+      selected = manual
+        ? pool.filter((q) => examManualIds.has(q.id)).length
+        : null;
+    let typeCounts =
+      ["mcq", "tf", "short"]
+        .map(
+          (type) =>
+            `${pool.filter((q) => q.type === type).length} ${type === "mcq" ? "MCQ" : type === "tf" ? "True/False" : "short answer"}`,
+        )
+        .filter((x) => !x.startsWith("0 "))
+        .join(" · ") || "No answerable questions";
+    box.innerHTML = `<div><b>${pool.length}</b> eligible questions · ${typeCounts}</div><small>${manual ? `${selected} manually selected${selected < amount ? ` · choose ${amount - selected} more or lower the exam size` : ""}` : `Exam size: ${amount} questions`}${amount > pool.length && !manual ? " · Not enough questions for this size." : ""}</small>`;
+    let list = $("#manual-question-list"),
+      area = $("#manual-question-area");
+    if (area) area.classList.toggle("hidden", !manual);
+    if (list && manual)
+      list.innerHTML = pool.length
+        ? pool
+            .map(
+              (q) =>
+                `<label class="manual-question"><input type="checkbox" class="manual-question-check" value="${q.id}" ${examManualIds.has(q.id) ? "checked" : ""}><span>${mathHtml(q.text)}</span><small>${q.type === "mcq" ? "MCQ" : q.type === "tf" ? "T/F" : "Short"} · ${esc(q.topic || "Unsorted")} · ${difficulty(q)}</small></label>`,
+            )
+            .join("")
+        : `<span class="page-sub">No eligible questions in this selection.</span>`;
+  }
+  function generateConfiguredExam(form) {
+    const f = new FormData(form),
+      sid = f.get("subject"),
+      types = f.getAll("qtype"),
+      scope = examSetup.scope,
+      level = f.get("difficulty") || "all",
+      randomize = f.has("randomize"),
+      manual = f.has("manual"),
+      all = f.has("allQuestions"),
+      shuffle = (a) =>
+        a
+          .map((x) => [Math.random(), x])
+          .sort((x, y) => x[0] - y[0])
+          .map((x) => x[1]),
+      pool = examCandidates();
+    if (!sid) {
+      notify("Choose a subject first.");
+      return;
+    }
+    if (!types.length) {
+      notify("Select at least one question type.");
+      return;
+    }
+    if (!pool.length) {
+      notify(
+        "No questions with answers match this subject, topic, type, and difficulty.",
+      );
+      return;
+    }
+    const pick = (items, count) => {
+      let set = manual ? items.filter((q) => examManualIds.has(q.id)) : items;
+      if (set.length < count) return null;
+      if (manual || types.length < 2)
+        return (randomize ? shuffle(set) : set).slice(0, count);
+      let groupTypes = randomize ? shuffle(types) : types,
+        groups = groupTypes.map((type) => {
+          let group = set.filter((q) => q.type === type);
+          return randomize ? shuffle(group) : group;
+        }),
+        out = [];
+      while (out.length < count) {
+        let moved = false;
+        for (const group of groups) {
+          if (group.length) {
+            out.push(group.shift());
+            moved = true;
+            if (out.length === count) break;
+          }
+        }
+        if (!moved) break;
+      }
+      return out.length === count ? out : null;
+    };
+    let picked = [],
+      topicCounts = {};
+    if (scope === "subject") {
+      const subject = db.subjects.find((s) => s.id === sid),
+        chosen = getExamTopics();
+      if (!chosen.length) {
+        notify("Select at least one topic for this subject exam.");
+        return;
+      }
+      for (const topic of chosen) {
+        const row = $$(".exam-topic-count-row").find(
+            (x) => x.querySelector(".exam-topic-choice")?.value === topic,
+          ),
+          input = row?.querySelector("[name=topicCount]"),
+          topicPool = pool.filter((q) => topicMatches(q, subject, topic)),
+          selected = manual
+            ? topicPool.filter((q) => examManualIds.has(q.id))
+            : topicPool,
+          n = manual
+            ? all
+              ? selected.length
+              : +(input?.value || 0)
+            : all
+              ? topicPool.length
+              : +(input?.value || 0);
+        if (!n) {
+          notify(`Enter a question count for ${topic}.`);
+          return;
+        }
+        let slice = pick(selected, n);
+        if (!slice) {
+          notify(
+            `${topic} has ${selected.length} selected eligible questions, but ${n} are requested.`,
+          );
+          return;
+        }
+        topicCounts[topic] = n;
+        picked.push(...slice);
+      }
+    } else {
+      const requested = manual
+        ? all
+          ? pool.filter((q) => examManualIds.has(q.id)).length
+          : +f.get("count")
+        : all
+          ? pool.length
+          : +f.get("count");
+      if (!Number.isInteger(requested) || requested < 1) {
+        notify("Enter a valid number of questions.");
+        return;
+      }
+      let slice = pick(pool, requested);
+      if (!slice) {
+        notify(
+          manual
+            ? `Only ${pool.filter((q) => examManualIds.has(q.id)).length} questions are selected. Select more or reduce the exam size.`
+            : `Only ${pool.length} eligible questions are available. Lower the question count or add more matching questions.`,
+        );
+        return;
+      }
+      picked = slice;
+    }
+    if (!picked.length) {
+      notify("No questions were selected for this exam.");
+      return;
+    }
+    if (scope === "subject" && randomize) picked = shuffle(picked);
+    picked = picked.map((q) => {
+      let snapshot = JSON.parse(JSON.stringify(q));
+      if (f.has("shuffleChoices") && snapshot.type === "mcq") {
+        let order = shuffle(snapshot.options.map((_, i) => i));
+        snapshot.options = order.map((i) => q.options[i]);
+        snapshot.correct = order.indexOf(q.correct);
+      }
+      return snapshot;
+    });
+    startAttempt(f.get("name").trim(), sid, picked, {
+      scope,
+      topicName: scope === "topic" ? examSetup.topic : null,
+      topicCounts,
+      minutes: +f.get("minutes") || null,
+      pass: +f.get("pass") || null,
+      instructions: f.get("instructions").trim(),
+    });
+  }
+  function closeSubjectPicker(picker) {
+    if (!picker) return;
+    picker.classList.remove("is-open", "opens-up");
+    let trigger = $(".subject-picker-trigger", picker),
+      menu = $(".subject-picker-menu", picker);
+    trigger?.setAttribute("aria-expanded", "false");
+    menu?.setAttribute("hidden", "");
+    trigger?.removeAttribute("aria-activedescendant");
+  }
+  function openSubjectPicker(picker, activeIndex) {
+    let trigger = $(".subject-picker-trigger", picker),
+      menu = $(".subject-picker-menu", picker),
+      options = $$(".subject-picker-option", picker);
+    if (!trigger || !menu) return;
+    let selectedIndex = Math.max(
+      0,
+      options.findIndex(
+        (option) => option.getAttribute("aria-selected") === "true",
+      ),
+    );
+    picker.classList.add("is-open");
+    menu.removeAttribute("hidden");
+    let roomBelow = innerHeight - trigger.getBoundingClientRect().bottom;
+    picker.classList.toggle(
+      "opens-up",
+      roomBelow < Math.min(menu.scrollHeight, 280) &&
+        trigger.getBoundingClientRect().top > roomBelow,
+    );
+    trigger.setAttribute("aria-expanded", "true");
+    let index = Math.max(
+      0,
+      Math.min(options.length - 1, activeIndex ?? selectedIndex),
+    );
+    options.forEach((option, i) =>
+      option.classList.toggle("is-active", i === index),
+    );
+    trigger.setAttribute("aria-activedescendant", options[index]?.id || "");
+    options[index]?.scrollIntoView({ block: "nearest" });
+  }
+  document.addEventListener("click", (e) => {
+    let picker = e.target.closest("[data-subject-picker]");
+    if (!picker) {
+      closeSubjectPicker($("[data-subject-picker].is-open"));
+      return;
+    }
+    let trigger = e.target.closest(".subject-picker-trigger"),
+      option = e.target.closest(".subject-picker-option");
+    if (trigger) {
+      if (picker.classList.contains("is-open")) closeSubjectPicker(picker);
+      else openSubjectPicker(picker);
+    }
+    if (option) {
+      let select = $(".subject-picker-native", picker),
+        value = option.dataset.value;
+      if (select.value !== value) {
+        select.value = value;
+        select.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      $(".subject-picker-trigger span", picker).textContent = $(
+        "span",
+        option,
+      ).textContent;
+      $$(".subject-picker-option", picker).forEach((item) => {
+        let selected = item === option;
+        item.classList.toggle("is-selected", selected);
+        item.setAttribute("aria-selected", String(selected));
+      });
+      closeSubjectPicker(picker);
+      $(".subject-picker-trigger", picker)?.focus();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    let trigger = e.target.closest?.(".subject-picker-trigger");
+    if (!trigger) return;
+    let picker = trigger.closest("[data-subject-picker]"),
+      options = $$(".subject-picker-option", picker),
+      active = Math.max(
+        0,
+        options.findIndex((option) => option.classList.contains("is-active")),
+      );
+    if (e.key === "Tab") {
+      closeSubjectPicker(picker);
+      return;
+    }
+    if (e.key === "Escape") {
+      closeSubjectPicker(picker);
+      return;
+    }
+    if (
+      e.key === "ArrowDown" ||
+      e.key === "ArrowUp" ||
+      e.key === "Home" ||
+      e.key === "End"
+    ) {
+      e.preventDefault();
+      let next =
+        e.key === "Home"
+          ? 0
+          : e.key === "End"
+            ? options.length - 1
+            : (active + (e.key === "ArrowDown" ? 1 : -1) + options.length) %
+              options.length;
+      openSubjectPicker(picker, next);
+    } else if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (!picker.classList.contains("is-open")) openSubjectPicker(picker);
+      else options[active]?.click();
+    } else if (e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      subjectPickerSearch += e.key.toLocaleLowerCase();
+      clearTimeout(subjectPickerSearchTimer);
+      subjectPickerSearchTimer = setTimeout(() => {
+        subjectPickerSearch = "";
+      }, 650);
+      let match = options.findIndex((option) =>
+        $("span", option)
+          .textContent.toLocaleLowerCase()
+          .startsWith(subjectPickerSearch),
+      );
+      if (match >= 0) openSubjectPicker(picker, match);
+    }
+  });
+  document.addEventListener("submit", (e) => {
+    if (e.target.id === "profile-form") {
+      e.preventDefault();
+      const form = e.target,
+        values = new FormData(form),
+        previous = db.profile || {};
+      const next = {
+        firstName: String(values.get("firstName") || "").trim(),
+        lastName: String(values.get("lastName") || "").trim(),
+        email: String(values.get("email") || "").trim(),
+        photo:
+          profilePhotoDraft === null ? previous.photo || "" : profilePhotoDraft,
+      };
+      if (
+        !next.firstName ||
+        (next.email && !form.elements.email.validity.valid)
+      ) {
+        notify(
+          next.firstName
+            ? "Enter a valid email address or leave the field blank."
+            : "Enter a first name.",
+        );
+        return;
+      }
+      db.profile = next;
+      try {
+        save();
+      } catch {
+        db.profile = previous;
+        notify(
+          "Could not save your profile. The photo may be too large for browser storage.",
+        );
+        return;
+      }
+      profilePhotoDraft = null;
+      page = "dashboard";
+      render();
+      notify("Profile changes saved.");
+      return;
+    }
+    if (e.target.id === "modal-form") {
+      e.preventDefault();
+      let f = new FormData(e.target),
+        edit = e.target.dataset.edit;
+      if (e.target.querySelector("[name=topicName]")) {
+        let s = db.subjects.find((x) => x.id === e.target.dataset.subject),
+          old = e.target.dataset.oldTopic || "",
+          name = f.get("topicName").trim(),
+          description = f.get("topicDescription").trim();
+        if (!s) {
+          notify("Subject could not be found.");
+          return;
+        }
+        s.topics = s.topics || [];
+        if (!name) {
+          notify("Enter a topic name.");
+          return;
+        }
+        if (s.topics.includes(name) && name !== old) {
+          notify("This topic already exists in the subject.");
+          return;
+        }
+        if (old) {
+          let i = s.topics.indexOf(old);
+          if (i >= 0) s.topics[i] = name;
+          s.topicDescriptions = s.topicDescriptions || {};
+          delete s.topicDescriptions[old];
+          if (description) s.topicDescriptions[name] = description;
+          else delete s.topicDescriptions[name];
+          s.topicAliases = s.topicAliases || [];
+          s.topicAliases.forEach((x) => {
+            if (x.to === old) x.to = name;
+          });
+          s.topicAliases.push({ from: old, to: name });
+          db.questions.forEach((q) => {
+            if (q.subjectId === s.id && q.topic === old) q.topic = name;
+          });
+          db.cards.forEach((c) => {
+            if (c.subjectId === s.id && c.topic === old) c.topic = name;
+          });
+          db.attempts.forEach((a) => {
+            if (a.subjectId === s.id && a.topicName === old) a.topicName = name;
+          });
+          if (topicViewName === old) topicViewName = name;
+        } else {
+          s.topics = s.topics || [];
+          s.topics.push(name);
+          s.topicDescriptions = s.topicDescriptions || {};
+          if (description) s.topicDescriptions[name] = description;
+        }
+      } else if (e.target.querySelector("[name=topics]")) {
+        let value = {
+          name: f.get("name").trim(),
+          description: f.get("description").trim(),
+          color: f.get("color"),
+          topics: [
+            ...new Set(
+              f
+                .get("topics")
+                .split(",")
+                .map((x) => x.trim())
+                .filter(Boolean),
+            ),
+          ],
+        };
+        if (edit) {
+          let subject = db.subjects.find((s) => s.id === edit),
+            removed = (subject.topics || []).filter(
+              (t) => !value.topics.includes(t),
+            );
+          removed.forEach((t) => {
+            db.questions.forEach((q) => {
+              if (q.subjectId === edit && q.topic === t) q.topic = "";
+            });
+            db.cards.forEach((c) => {
+              if (c.subjectId === edit && c.topic === t) c.topic = "";
+            });
+            if (subject.topicDescriptions) delete subject.topicDescriptions[t];
+          });
+          Object.assign(subject, value);
+        } else db.subjects.push({ id: uid(), ...value });
+      } else if (e.target.querySelector("[name=front]")) {
+        let value = {
+          front: f.get("front").trim(),
+          back: f.get("back").trim(),
+          subjectId: f.get("subjectId"),
+          topic: f.get("topic").trim(),
+        };
+        if (edit)
+          Object.assign(
+            db.cards.find((c) => c.id === edit),
+            value,
+          );
+        else db.cards.push({ id: uid(), ...value, due: today(), interval: 0 });
+      } else {
+        let type = f.get("type"),
+          options =
+            type === "mcq" ? f.getAll("option").map((x) => x.trim()) : [],
+          correct =
+            type === "mcq"
+              ? f.has("correct")
+                ? +f.get("correct")
+                : null
+              : type === "tf"
+                ? f.get("tfcorrect") === ""
+                  ? null
+                  : f.get("tfcorrect") === "true"
+                : f.get("shortcorrect").trim() || null;
+        if (
+          type === "mcq" &&
+          (correct === null || !options.length || options.some((x) => !x))
+        ) {
+          notify("Fill in every answer option and select the correct one.");
+          return;
+        }
+        let value = {
+          text: f.get("text").trim(),
+          type,
+          subjectId: f.get("subjectId"),
+          topic: f.get("topic").trim(),
+          options,
+          correct,
+          explanation: f.get("explanation").trim(),
+        };
+        if (edit)
+          Object.assign(
+            db.questions.find((q) => q.id === edit),
+            value,
+          );
+        else db.questions.push({ id: uid(), ...value });
+      }
+      save();
+      modal = null;
+      render();
+      notify(edit ? "Changes saved." : "Added successfully.");
+      return;
+    }
+    if (e.target.id === "exam-form") {
+      e.preventDefault();
+      generateConfiguredExam(e.target);
+      return;
+    }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("#profile-photo")) {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      if (!file.type.startsWith("image/")) {
+        notify("Choose an image file.");
+        e.target.value = "";
+        return;
+      }
+      if (file.size > 1.5 * 1024 * 1024) {
+        notify("Choose an image smaller than 1.5 MB.");
+        e.target.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        profilePhotoDraft = String(reader.result);
+        $("#profile-photo-preview").innerHTML =
+          `<img src="${profilePhotoDraft}" alt="Profile photo preview">`;
+        $('[data-action="profile-remove-photo"]')?.removeAttribute("disabled");
+      };
+      reader.onerror = () => notify("Could not read that image.");
+      reader.readAsDataURL(file);
+    }
+  });
+  document.addEventListener("input", (e) => {
+    if (
+      e.target.closest("#exam-form") &&
+      e.target.matches(
+        "input[name=count],input[name=minutes],input[name=pass],input[name=topicCount],select[name=difficulty]",
+      )
+    )
+      updateExamAvailability();
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("#import-type")) {
+      importDraft.type = e.target.value;
+      persistImportDraft();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.matches("#modal-form input[name=correct]")) {
+      const options = $$("#modal-form input[name=option]"),
+        selected = options[+e.target.value]?.value || "",
+        preview = $('[data-math-preview="selected-correct"]');
+      if (preview) {
+        updateMathPreview(preview, selected);
+      }
+    }
+  });
+  document.addEventListener("input", (e) => {
+    if (e.target.matches("input[name=answer-text]")) {
+      let a = currentAttempt();
+      if (a) {
+        a.answers[a.current || 0] = e.target.value || null;
+        save();
+      }
+    }
+  });
+  document.addEventListener("dragstart", (e) => {
+    let card = e.target.closest(".import-question");
+    if (card) {
+      e.dataTransfer.setData("text/plain", card.dataset.importIndex);
+      e.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+    }
+  });
+  document.addEventListener("dragend", (e) =>
+    e.target.closest(".import-question")?.classList.remove("dragging"),
+  );
+  document.addEventListener("dragover", (e) => {
+    let card = e.target.closest(".import-question");
+    if (card) {
+      e.preventDefault();
+      card.classList.add("drag-over");
+    }
+  });
+  document.addEventListener("dragleave", (e) =>
+    e.target.closest(".import-question")?.classList.remove("drag-over"),
+  );
+  document.addEventListener("drop", (e) => {
+    let card = e.target.closest(".import-question");
+    if (!card) return;
+    e.preventDefault();
+    let from = +e.dataTransfer.getData("text/plain"),
+      to = +card.dataset.importIndex;
+    if (from === to) return;
+    let [item] = importDraft.questions.splice(from, 1);
+    importDraft.questions.splice(to, 0, item);
+    persistImportDraft();
+    render();
+  });
+  document.addEventListener("keydown", (e) => {
+    if (page === "study-cards" && flashRun) {
+      if (e.code === "Space") {
+        e.preventDefault();
+        flashRun.flipped = true;
+        render();
+      }
+      if (flashRun.flipped && ["1", "2", "3", "4"].includes(e.key)) {
+        let key = ["again", "hard", "good", "easy"][+e.key - 1];
+        $(`[data-action=rate][data-rating=${key}]`)?.click();
+      }
+    }
+    if (page === "run-exam" && ["ArrowRight", "ArrowLeft"].includes(e.key)) {
+      e.preventDefault();
+      $(
+        `[data-action=exam-${e.key === "ArrowRight" ? "next" : "prev"}]`,
+      )?.click();
+    }
+  });
+  setInterval(() => {
+    let t = $("#timer");
+    if (!t) return;
+    let total = +t.dataset.minutes * 60,
+      remain = Math.max(
+        0,
+        total - Math.floor((Date.now() - +t.dataset.start) / 1000),
+      ),
+      m = Math.floor(remain / 60),
+      s = remain % 60;
+    t.textContent = `⏱ ${m}:${String(s).padStart(2, "0")}`;
+    if (!remain) submitAttempt(currentAttempt());
+  }, 1000);
+  render();
+})();
