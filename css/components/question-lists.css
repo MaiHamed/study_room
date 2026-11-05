@@ -108,3 +108,97 @@ textarea:focus {
     align-items: center
 }
 
+
+/* Selection and destructive management controls */
+.question-table-head,
+.question-bank-row {
+    grid-template-columns: 28px minmax(180px, 2fr) 1fr 100px 110px
+}
+
+.question-table-head > label,
+.row-select { display: grid; place-items: center; margin: 0 }
+.question-table-head input,
+.row-select input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer }
+.question-bank-row { transition: background .18s ease, box-shadow .18s ease }
+.question-bank-row.is-selected,
+.exam-history-row.is-selected { background: color-mix(in srgb, var(--accent) 10%, var(--paper)); box-shadow: inset 3px 0 var(--accent) }
+
+.selection-bar {
+    position: sticky;
+    top: 12px;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 11px 14px;
+    margin: 0 0 12px;
+    border: 1px solid var(--line);
+    border-radius: 13px;
+    background: var(--paper);
+    box-shadow: var(--shadow);
+    animation: selection-in .18s ease both
+}
+.selection-bar > b { margin-right: auto; font-size: 12px }
+.selection-bar .btn svg,
+.danger-icon svg,
+.delete-modal-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
+.selection-bar .btn { display: inline-flex; align-items: center; gap: 7px }
+.btn.danger { color: #e07478; border-color: color-mix(in srgb, #ce4c56 38%, var(--line)); background: color-mix(in srgb, #ce4c56 9%, var(--paper)) }
+.btn.danger:hover { background: color-mix(in srgb, #ce4c56 17%, var(--paper)) }
+.danger-icon { color: #df767b }
+.exam-history-head,
+.exam-history-row { grid-template-columns: 28px minmax(180px, 2fr) 1fr 100px 145px }
+.exam-history-row { transition: background .18s ease, box-shadow .18s ease }
+.exam-history-row .row-actions { display: flex; align-items: center; justify-content: flex-end; gap: 6px }
+.exam-history-row .row-actions .btn { white-space: nowrap }
+
+.delete-modal { width: min(500px, calc(100vw - 32px)); }
+.delete-modal > p { color: var(--muted); font-size: 13px; line-height: 1.6 }
+.delete-modal .delete-warning { color: #df767b; font-weight: 700 }
+.delete-modal-icon { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 14px; border-radius: 13px; color: #e07478; background: color-mix(in srgb, #ce4c56 12%, var(--paper)) }
+.delete-modal-icon svg { width: 20px; height: 20px }
+.delete-modal .btn.danger { background: #a63843; color: white; border-color: #a63843 }
+.delete-modal .btn.danger:hover { background: #912f39 }
+.delete-modal .btn:disabled { opacity: .55; cursor: wait }
+
+@keyframes selection-in { from { opacity: 0; transform: translateY(-5px) } to { opacity: 1; transform: translateY(0) } }
+@media (max-width: 760px) {
+    .question-table-head { display: none }
+    .question-bank-row { grid-template-columns: 28px minmax(0, 1fr); gap: 8px 10px; padding: 14px }
+    .question-bank-row .question-text { grid-column: 2 }
+    .question-bank-row > div:not(.question-text):not(.row-actions) { grid-column: 2 }
+    .question-bank-row .row-actions { grid-column: 2; justify-content: flex-start }
+    .exam-history-head { display: none }
+    .exam-history-row { grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; padding: 14px }
+    .exam-history-row > div:nth-of-type(2), .exam-history-row > div:nth-of-type(3) { grid-column: 2 }
+    .exam-history-row .row-actions { grid-column: 3; grid-row: 1 / span 3; flex-direction: column }
+    .selection-bar { flex-wrap: wrap; top: 6px }
+    .selection-bar > b { flex-basis: 100% }
+    .selection-bar .btn { flex: 1; justify-content: center }
+}
+
+/* Keep bulk selection available without making every row look selectable at rest. */
+@media (hover: hover) and (pointer: fine) {
+    .question-bank-row .row-select input,
+    .exam-history-row .row-select input {
+        opacity: 0;
+        transition: opacity .16s ease;
+    }
+
+    .question-bank-row:hover .row-select input,
+    .question-bank-row:focus-within .row-select input,
+    .question-bank-row.is-selected .row-select input,
+    .exam-history-row:hover .row-select input,
+    .exam-history-row:focus-within .row-select input,
+    .exam-history-row.is-selected .row-select input {
+        opacity: 1;
+    }
+
+    .question-table-head input,
+    .exam-history-head input { opacity: .45; transition: opacity .16s ease }
+    .question-table-head:hover input,
+    .exam-history-head:hover input,
+    .question-table-head:focus-within input,
+    .exam-history-head:focus-within input { opacity: 1 }
+}
