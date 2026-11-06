@@ -15,7 +15,11 @@
   });
   let db;
   try {
-    db = { ...blank(), ...JSON.parse(localStorage.getItem(KEY) || "{}") };
+    const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
+    db = { ...blank(), ...saved };
+    db.settings = { ...blank().settings, ...(saved.settings || {}) };
+    if (saved.settings?.dark === undefined)
+      db.settings.dark = !!window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
   } catch {
     db = blank();
   }

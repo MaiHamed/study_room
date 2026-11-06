@@ -11,10 +11,7 @@
 @import url("components/exam-taking.css");
 @import url("components/flashcards-and-results.css");
 @import url("components/controls-and-toasts.css");
-@import url("global/dark-theme.css");
 @import url("utilities/responsive.css");
-@import url("components/dark-interactions.css");
-@import url("global/theme-overrides.css");
 @import url("components/form-and-modal-overrides.css");
 @import url("utilities/motion.css");
 @import url("pages/smart-import/smart-import.css");

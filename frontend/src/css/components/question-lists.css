@@ -9,7 +9,7 @@
 .field,
 .search {
     border: 1px solid var(--line);
-    background: #fffefa;
+    background: var(--surface);
     padding: 10px 12px;
     border-radius: 8px;
     color: var(--ink);
@@ -20,8 +20,8 @@
 .field:focus,
 .search:focus,
 textarea:focus {
-    border-color: #a995cb;
-    box-shadow: 0 0 0 3px #a58bce30
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 19%, transparent)
 }
 
 .search {
@@ -46,15 +46,15 @@ textarea:focus {
 }
 
 .table-head {
-    background: #f7f5ef;
-    color: #96978f;
+    background: var(--background);
+    color: var(--muted);
     font-size: 9px;
     letter-spacing: 1px;
     text-transform: uppercase
 }
 
 .table-item {
-    border-top: 1px solid #efede7;
+    border-top: 1px solid var(--background);
     font-size: 12px
 }
 
@@ -68,19 +68,19 @@ textarea:focus {
     align-items: center;
     padding: 5px 8px;
     border-radius: 20px;
-    background: #f0ecf7;
-    color: #684f96;
+    background: var(--background);
+    color: var(--secondary);
     font-size: 10px
 }
 
 .badge.warn {
-    background: #f8eee0;
-    color: #a67a38
+    background: var(--background);
+    color: var(--secondary)
 }
 
 .badge.rose {
-    background: #f7eae6;
-    color: #a8665c
+    background: var(--background);
+    color: var(--secondary)
 }
 
 .row-actions {
@@ -92,7 +92,7 @@ textarea:focus {
 .icon-btn {
     border: 0;
     background: transparent;
-    color: #898b82;
+    color: var(--muted);
     padding: 5px;
     font-size: 14px
 }
@@ -144,9 +144,9 @@ textarea:focus {
 .danger-icon svg,
 .delete-modal-icon svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
 .selection-bar .btn { display: inline-flex; align-items: center; gap: 7px }
-.btn.danger { color: #e07478; border-color: color-mix(in srgb, #ce4c56 38%, var(--line)); background: color-mix(in srgb, #ce4c56 9%, var(--paper)) }
-.btn.danger:hover { background: color-mix(in srgb, #ce4c56 17%, var(--paper)) }
-.danger-icon { color: #df767b }
+.btn.danger { color: var(--secondary); border-color: color-mix(in srgb, var(--secondary) 38%, var(--line)); background: color-mix(in srgb, var(--secondary) 9%, var(--paper)) }
+.btn.danger:hover { background: color-mix(in srgb, var(--secondary) 17%, var(--paper)) }
+.danger-icon { color: var(--secondary) }
 .exam-history-head,
 .exam-history-row { grid-template-columns: 28px minmax(180px, 2fr) 1fr 100px 145px }
 .exam-history-row { transition: background .18s ease, box-shadow .18s ease }
@@ -155,11 +155,11 @@ textarea:focus {
 
 .delete-modal { width: min(500px, calc(100vw - 32px)); }
 .delete-modal > p { color: var(--muted); font-size: 13px; line-height: 1.6 }
-.delete-modal .delete-warning { color: #df767b; font-weight: 700 }
-.delete-modal-icon { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 14px; border-radius: 13px; color: #e07478; background: color-mix(in srgb, #ce4c56 12%, var(--paper)) }
+.delete-modal .delete-warning { color: var(--secondary); font-weight: 700 }
+.delete-modal-icon { display: grid; place-items: center; width: 42px; height: 42px; margin-bottom: 14px; border-radius: 13px; color: var(--secondary); background: color-mix(in srgb, var(--secondary) 12%, var(--paper)) }
 .delete-modal-icon svg { width: 20px; height: 20px }
-.delete-modal .btn.danger { background: #a63843; color: white; border-color: #a63843 }
-.delete-modal .btn.danger:hover { background: #912f39 }
+.delete-modal .btn.danger { background: var(--secondary); color: var(--accent-contrast); border-color: var(--secondary) }
+.delete-modal .btn.danger:hover { background: var(--secondary) }
 .delete-modal .btn:disabled { opacity: .55; cursor: wait }
 
 @keyframes selection-in { from { opacity: 0; transform: translateY(-5px) } to { opacity: 1; transform: translateY(0) } }

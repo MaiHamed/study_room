@@ -27,12 +27,12 @@
 }
 
 .answer-option:hover {
-    border-color: #b8a5d6
+    border-color: var(--secondary)
 }
 
 .answer-option.selected {
-    background: #f7f3fb;
-    border-color: #a995cb
+    background: var(--background);
+    border-color: var(--secondary)
 }
 
 .exam-side {
@@ -57,13 +57,13 @@
 
 .q-num.current {
     background: var(--accent);
-    color: white;
+    color: var(--accent-contrast);
     border-color: var(--accent)
 }
 
 .q-num.done {
-    background: #e8e0f3;
-    color: #684f96
+    background: var(--background);
+    color: var(--secondary)
 }
 
 .exam-nav {

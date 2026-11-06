@@ -1,15 +1,14 @@
 :root {
-    --bg: #f8f6f0;
-    --paper: #fffefa;
-    --ink: #282a25;
-    --muted: #85877f;
-    --line: #e9e6dc;
-    --accent: #8068b2;
-    --accent-soft: #f0ebf8;
-    --gold: #c5964b;
-    --rose: #bf766d;
-    --blue: #718aa0;
-    --shadow: 0 14px 40px #4c493b0d;
+    --bg: var(--background);
+    --paper: var(--surface);
+    --ink: var(--text);
+    --line: var(--border);
+    --accent: var(--primary);
+    --accent-soft: var(--primary-soft);
+    --gold: var(--secondary);
+    --rose: var(--secondary);
+    --blue: var(--primary);
+    --shadow: 0 14px 40px color-mix(in srgb, var(--text) 5%, transparent);
     --serif: 'DM Serif Display', Georgia, serif;
     --sans: 'DM Sans', sans-serif
 }

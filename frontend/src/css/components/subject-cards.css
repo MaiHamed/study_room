@@ -16,7 +16,7 @@
     border-radius: 50%;
     right: -12px;
     top: -18px;
-    background: #e8e0f3
+    background: var(--background)
 }
 
 .subject-card h3 {
@@ -45,14 +45,14 @@
 .progress {
     height: 6px;
     border-radius: 8px;
-    background: #eeece5;
+    background: var(--background);
     overflow: hidden
 }
 
 .progress i {
     display: block;
     height: 100%;
-    background: #9479c6;
+    background: var(--secondary);
     border-radius: 8px
 }
 

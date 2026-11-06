@@ -6,7 +6,7 @@
     width: 248px;
     position: fixed;
     inset: 0 auto 0 0;
-    background: #f2efe7;
+    background: var(--background);
     border-right: 1px solid var(--line);
     padding: 27px 18px 20px;
     display: flex;
@@ -29,7 +29,7 @@
     place-items: center;
     width: 36px;
     height: 36px;
-    background: #e6def2;
+    background: var(--background);
     border-radius: 12px;
     color: var(--accent);
     font-size: 23px
@@ -47,7 +47,7 @@
     font-size: 9px;
     letter-spacing: 1.7px;
     font-weight: 700;
-    color: #a1a197;
+    color: var(--border);
     padding: 0 12px 12px
 }
 
@@ -62,7 +62,7 @@ nav button {
     text-align: left;
     padding: 11px 12px;
     border-radius: 10px;
-    color: #6d7068;
+    color: var(--muted);
     display: flex;
     align-items: center;
     gap: 12px;
@@ -71,13 +71,13 @@ nav button {
 }
 
 nav button:hover {
-    background: #eae8de;
+    background: var(--background);
     color: var(--ink)
 }
 
 nav button.active {
-    background: #e8e0f3;
-    color: #61488e;
+    background: var(--background);
+    color: var(--secondary);
     font-weight: 700
 }
 
@@ -89,7 +89,7 @@ nav button .nav-icon {
 
 .nav-count {
     margin-left: auto;
-    color: #9a9c93;
+    color: var(--muted);
     font-size: 11px
 }
 
@@ -101,7 +101,7 @@ nav button .nav-icon {
     display: flex;
     align-items: center;
     gap: 12px;
-    border-top: 1px solid #e2dfd6;
+    border-top: 1px solid var(--background);
     padding: 20px 7px 16px
 }
 
@@ -109,8 +109,8 @@ nav button .nav-icon {
     width: 34px;
     height: 34px;
     border-radius: 11px;
-    background: #f7e9d3;
-    color: #bf8942;
+    background: var(--background);
+    color: var(--secondary);
     display: grid;
     place-items: center;
     font-size: 17px
@@ -134,7 +134,7 @@ nav button .nav-icon {
 .theme-btn {
     border: 0;
     background: transparent;
-    color: #77796f;
+    color: var(--muted);
     font-size: 12px;
     padding: 9px 8px
 }
@@ -155,7 +155,7 @@ nav button .nav-icon {
     justify-content: space-between;
     padding: 0 5vw;
     border-bottom: 1px solid var(--line);
-    background: #f8f6f0cc;
+    background: color-mix(in srgb, var(--background) 80%, transparent);
     position: sticky;
     top: 0;
     z-index: 5;
@@ -164,7 +164,7 @@ nav button .nav-icon {
 
 .crumb {
     font-size: 12px;
-    color: #77796f
+    color: var(--muted)
 }
 
 .top-actions {
@@ -175,7 +175,7 @@ nav button .nav-icon {
 
 .today {
     font-size: 11px;
-    color: #96978e
+    color: var(--muted)
 }
 
 .avatar {
@@ -183,7 +183,7 @@ nav button .nav-icon {
     border-radius: 50%;
     width: 32px;
     height: 32px;
-    background: #e6def2;
+    background: var(--background);
     color: var(--accent);
     font-weight: 700;
     display: grid;
@@ -194,7 +194,7 @@ nav button .nav-icon {
     transition: transform .18s ease, box-shadow .18s ease, background .18s ease
 }
 
-.avatar:hover { transform: translateY(-1px); box-shadow: 0 0 0 4px #e6def280 }
+.avatar:hover { transform: translateY(-1px); box-shadow: 0 0 0 4px color-mix(in srgb, var(--background) 50%, transparent) }
 .avatar:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px }
 .avatar img { width: 100%; height: 100%; object-fit: cover }
 .avatar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }

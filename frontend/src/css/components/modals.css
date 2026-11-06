@@ -1,7 +1,7 @@
 .modal-backdrop {
     position: fixed;
     inset: 0;
-    background: #282a2573;
+    background: color-mix(in srgb, var(--text) 45%, transparent);
     z-index: 30;
     display: grid;
     place-items: center;
@@ -15,7 +15,7 @@
     background: var(--paper);
     border-radius: 16px;
     padding: 24px;
-    box-shadow: 0 22px 80px #0002
+    box-shadow: 0 22px 80px color-mix(in srgb, var(--background) 13%, transparent)
 }
 
 .modal h2 {

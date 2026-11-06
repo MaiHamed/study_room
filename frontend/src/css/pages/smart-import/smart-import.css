@@ -28,14 +28,9 @@
     border-radius: 15px;
     display: grid;
     place-items: center;
-    background: #eee7f7;
-    color: #785da9;
+    background: var(--background);
+    color: var(--secondary);
     font-size: 22px
-}
-
-body.dark .import-icon {
-    background: #3a3048;
-    color: #c9b4ed
 }
 
 .import-textarea {
@@ -86,7 +81,7 @@ body.dark .import-icon {
 
 .import-toolbar input,
 .import-select input {
-    accent-color: #8068b2
+    accent-color: var(--secondary)
 }
 
 .import-preview-list {
@@ -116,16 +111,12 @@ body.dark .import-icon {
 }
 
 .import-question.drag-over {
-    border-color: #9a7bc4;
-    box-shadow: 0 0 0 3px #9a7bc425
+    border-color: var(--secondary);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--secondary) 15%, transparent)
 }
 
 .import-question.has-warning {
-    border-color: #dec397
-}
-
-body.dark .import-question.has-warning {
-    border-color: #806741
+    border-color: var(--secondary-soft)
 }
 
 .import-card-head {
@@ -161,17 +152,11 @@ body.dark .import-question.has-warning {
 .import-duplicate {
     padding: 10px 12px;
     border-radius: 9px;
-    background: #faf2e5;
-    color: #896634;
+    background: var(--background);
+    color: var(--secondary);
     font-size: 11px;
     line-height: 1.5;
     margin: 0 0 15px
-}
-
-body.dark .import-warning,
-body.dark .import-duplicate {
-    background: #3e3428;
-    color: #e0bf8f
 }
 
 .import-options {

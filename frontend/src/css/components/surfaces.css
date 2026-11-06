@@ -34,7 +34,7 @@
 
 .stat-note {
     font-size: 10px;
-    color: #9b9d94
+    color: var(--muted)
 }
 
 .dashboard-grid {

@@ -1,6 +1,6 @@
 .welcome {
     border-radius: 16px;
-    background: #e8e0f3;
+    background: var(--background);
     padding: 26px 30px;
     display: flex;
     justify-content: space-between;
@@ -12,7 +12,7 @@
 .welcome:after {
     content: '✳';
     font-size: 120px;
-    color: #8068b210;
+    color: color-mix(in srgb, var(--secondary) 6%, transparent);
     position: absolute;
     right: 24px;
     top: -24px
@@ -25,7 +25,7 @@
 
 .welcome p {
     margin: 0;
-    color: #746d80;
+    color: var(--muted);
     font-size: 12px
 }
 
@@ -39,7 +39,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    border-top: 1px solid #efede6;
+    border-top: 1px solid var(--background);
     padding: 13px 0
 }
 
@@ -52,7 +52,7 @@
     width: 9px;
     height: 9px;
     border-radius: 50%;
-    background: #9479c6
+    background: var(--secondary)
 }
 
 .row-main {
@@ -91,7 +91,7 @@
 .empty-icon {
     font-size: 25px;
     margin-bottom: 8px;
-    color: #c6b1ed
+    color: var(--secondary)
 }
 
 .quick-grid {
@@ -102,7 +102,7 @@
 
 .quick {
     border: 1px solid var(--line);
-    background: #fffefa;
+    background: var(--surface);
     border-radius: 12px;
     padding: 16px;
     text-align: left;
@@ -110,8 +110,8 @@
 }
 
 .quick:hover {
-    border-color: #b8a5d6;
-    background: #faf8fd
+    border-color: var(--secondary);
+    background: var(--surface)
 }
 
 .quick span {

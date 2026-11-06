@@ -26,12 +26,12 @@
     width: 100%;
     min-height: 48px;
     padding: 0 15px;
-    border: 1px solid color-mix(in srgb, #b5a0dc 28%, var(--line));
+    border: 1px solid color-mix(in srgb, var(--secondary) 28%, var(--line));
     border-radius: 12px;
-    background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 90%, #40364f), var(--paper));
+    background: linear-gradient(135deg, color-mix(in srgb, var(--paper) 90%, var(--secondary)), var(--paper));
     color: var(--ink);
     text-align: left;
-    box-shadow: 0 5px 18px rgba(31, 24, 43, .07), inset 0 1px rgba(255, 255, 255, .45);
+    box-shadow: 0 5px 18px color-mix(in srgb, var(--primary) 7%, transparent), inset 0 1px color-mix(in srgb, var(--surface) 45%, transparent);
     transition: border-color .18s ease, box-shadow .18s ease, background .18s ease;
 }
 
@@ -56,8 +56,8 @@
 
 .subject-picker-trigger:hover,
 .subject-picker.is-open .subject-picker-trigger {
-    border-color: color-mix(in srgb, var(--accent) 62%, #777);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 8px 22px rgba(31, 24, 43, .12);
+    border-color: color-mix(in srgb, var(--accent) 62%, var(--muted));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 14%, transparent), 0 8px 22px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .subject-picker-trigger:focus-visible {
@@ -78,14 +78,14 @@
     padding: 6px;
     overflow-y: auto;
     overscroll-behavior: contain;
-    border: 1px solid rgba(151, 128, 184, .24);
+    border: 1px solid color-mix(in srgb, var(--primary) 24%, transparent);
     border-radius: 14px;
-    background: rgba(255, 254, 255, .96);
-    color: #302a3a;
-    box-shadow: 0 18px 48px rgba(42, 31, 57, .16), 0 3px 12px rgba(42, 31, 57, .09), inset 0 1px rgba(255, 255, 255, .8);
+    background: color-mix(in srgb, var(--surface) 96%, transparent);
+    color: var(--secondary);
+    box-shadow: 0 18px 48px color-mix(in srgb, var(--primary) 16%, transparent), 0 3px 12px color-mix(in srgb, var(--primary) 9%, transparent), inset 0 1px color-mix(in srgb, var(--surface) 80%, transparent);
     -webkit-backdrop-filter: blur(18px) saturate(135%);
     backdrop-filter: blur(18px) saturate(135%);
-    scrollbar-color: #b6a6ca transparent;
+    scrollbar-color: var(--border) transparent;
     scrollbar-width: thin;
     animation: subject-menu-in .16s cubic-bezier(.2, .7, .25, 1) both;
 }
@@ -111,7 +111,7 @@
     border: 1px solid transparent;
     border-radius: 9px;
     background: transparent;
-    color: #50485b;
+    color: var(--text);
     cursor: pointer;
     font: inherit;
     font-size: 13px;
@@ -122,26 +122,26 @@
 
 .subject-picker-option:hover,
 .subject-picker-option.is-active {
-    border-color: rgba(128, 104, 178, .12);
-    background: rgba(128, 104, 178, .1);
-    color: #302a3a;
+    border-color: color-mix(in srgb, var(--primary) 12%, transparent);
+    background: color-mix(in srgb, var(--primary) 10%, transparent);
+    color: var(--secondary);
 }
 
 .subject-picker-option.is-selected {
-    background: rgba(128, 104, 178, .15);
-    color: #684f96;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--secondary);
     font-weight: 650;
 }
 
 .subject-picker-option b {
-    color: #8068b2;
+    color: var(--secondary);
     font-size: 12px;
     opacity: 0;
 }
 
 .subject-picker-option.is-selected b {
     opacity: 1;
-    text-shadow: 0 0 12px rgba(184, 145, 255, .72);
+    text-shadow: 0 0 12px color-mix(in srgb, var(--primary) 72%, transparent);
 }
 
 .subject-picker-menu::-webkit-scrollbar {
@@ -151,7 +151,7 @@
 .subject-picker-menu::-webkit-scrollbar-thumb {
     border: 2px solid transparent;
     border-radius: 8px;
-    background: #75638e;
+    background: var(--secondary);
     background-clip: padding-box;
 }
 
@@ -159,19 +159,9 @@
     background: transparent;
 }
 
-body.dark .subject-picker-menu {
-    border-color: rgba(188, 169, 219, .26);
-    background: rgba(28, 27, 35, .94);
-    color: #f5f1fb;
-    box-shadow: 0 18px 48px rgba(8, 7, 13, .34), 0 3px 12px rgba(8, 7, 13, .22), inset 0 1px rgba(255, 255, 255, .06);
-    scrollbar-color: #75638e transparent;
-}
 
-body.dark .subject-picker-option { color: #d8d3e1; }
-body.dark .subject-picker-option:hover,
-body.dark .subject-picker-option.is-active { border-color: rgba(184, 156, 230, .12); background: rgba(157, 128, 204, .16); color: #fff; }
-body.dark .subject-picker-option.is-selected { background: rgba(157, 128, 204, .2); color: #d9c5ff; }
-body.dark .subject-picker-option b { color: #c7a9ff; }
+
+
 
 @keyframes subject-menu-in {
     from { opacity: 0; transform: translateY(-5px) scale(.99); }

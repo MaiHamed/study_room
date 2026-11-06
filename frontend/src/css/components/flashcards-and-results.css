@@ -27,7 +27,7 @@
 
 .rate {
     border: 1px solid var(--line);
-    background: #fffefa;
+    background: var(--surface);
     padding: 11px 19px;
     border-radius: 9px;
     font-size: 12px;
@@ -35,19 +35,19 @@
 }
 
 .rate.again {
-    color: #b7685e
+    color: var(--secondary)
 }
 
 .rate.hard {
-    color: #b28646
+    color: var(--secondary)
 }
 
 .rate.good {
-    color: #765ca5
+    color: var(--secondary)
 }
 
 .rate.easy {
-    color: #6b86a0
+    color: var(--primary)
 }
 
 .result-score {
@@ -57,7 +57,7 @@
     display: grid;
     place-items: center;
     margin: auto;
-    background: conic-gradient(#9479c6 var(--score), #ebe9e2 0);
+    background: conic-gradient(var(--secondary) var(--score), var(--background) 0);
     position: relative
 }
 
@@ -111,7 +111,7 @@
 
 .result-review-summary b { font: 20px var(--serif); color: var(--ink) }
 .result-review-summary span { color: var(--muted); font-size: 11px }
-.result-review-summary .is-flagged b { color: #bb9af2 }
+.result-review-summary .is-flagged b { color: var(--secondary) }
 
 .review-question-nav { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 15px }
 .review-nav-item {
@@ -129,7 +129,7 @@
     transition: transform .18s ease, border-color .18s ease, background .18s ease
 }
 .review-nav-item:hover { transform: translateY(-2px) }
-.review-nav-item.is-flagged { color: #d0b7ff; border-color: #8061b2; background: rgba(126, 92, 176, .16) }
+.review-nav-item.is-flagged { color: var(--primary-soft); border-color: var(--secondary); background: color-mix(in srgb, var(--primary) 16%, transparent) }
 .review-nav-item svg { width: 13px; height: 13px; fill: currentColor; stroke: currentColor; stroke-width: .5 }
 
 .review-item.review-question {
@@ -139,7 +139,7 @@
     border-radius: 0 10px 10px 0;
     scroll-margin-top: 18px
 }
-.review-item.review-question.is-flagged { border-left-color: #9b78d0; background: rgba(126, 92, 176, .08) }
+.review-item.review-question.is-flagged { border-left-color: var(--secondary); background: color-mix(in srgb, var(--primary) 8%, transparent) }
 .review-item.review-question.is-unflagged { border-left-color: transparent; background: transparent }
 .review-status-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px }
 .review-status {
@@ -149,9 +149,9 @@
     border-radius: 999px;
     padding: 5px 10px;
     font: 700 11px var(--sans);
-    color: #d7c4fb;
-    background: rgba(126, 92, 176, .2);
-    border: 1px solid rgba(166, 133, 218, .45)
+    color: var(--surface);
+    background: color-mix(in srgb, var(--primary) 20%, transparent);
+    border: 1px solid color-mix(in srgb, var(--primary) 45%, transparent)
 }
 .review-status svg { width: 14px; height: 14px; fill: currentColor; stroke: currentColor; stroke-width: .5 }
 

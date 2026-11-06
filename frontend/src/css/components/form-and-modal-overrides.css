@@ -12,26 +12,18 @@
 }
 
 .option-row:hover {
-    border-color: #b8a5d6;
-    background: #faf8fd;
+    border-color: var(--secondary);
+    background: var(--surface);
     transform: translateY(-1px)
 }
 
-body.dark .option-row {
-    background: #292733
-}
-
-body.dark .option-row:hover {
-    border-color: #74628f;
-    background: #302c39
-}
 
 .option-row input[type="radio"] {
     width: 17px !important;
     height: 17px;
     margin: 0;
     justify-self: center;
-    accent-color: #8a70bd
+    accent-color: var(--secondary)
 }
 
 .option-row input[type="text"],
@@ -48,7 +40,7 @@ body.dark .option-row:hover {
 /* Spacious modal with polished entrance */
 .modal-backdrop {
     padding: 16px;
-    background: rgba(27, 24, 34, .58);
+    background: color-mix(in srgb, var(--primary) 58%, transparent);
     backdrop-filter: blur(7px);
     animation: veil-in .2s ease both
 }
@@ -61,7 +53,7 @@ body.dark .option-row:hover {
     border: 1px solid var(--line);
     border-radius: 20px;
     background: var(--paper);
-    box-shadow: 0 28px 90px rgba(24, 18, 34, .28);
+    box-shadow: 0 28px 90px color-mix(in srgb, var(--primary) 28%, transparent);
     animation: modal-in .28s cubic-bezier(.2, .75, .25, 1) both
 }
 

@@ -55,4 +55,4 @@ There is no configured automated test or build runner. Browser-based workflow ch
 - Generate exams, take them, mark questions for review, and inspect submitted results.
 - Track recurring misses and study flashcards with spaced review.
 - Use Smart Import to parse question text locally and inspect uncertain fields before import.
-- Customize themes and light/dark appearance; preferences persist in local storage.
+- Choose a palette and switch between its light and dark appearances; both preferences persist in local storage.

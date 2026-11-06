@@ -3,9 +3,9 @@
   <head>
     <meta charset="utf-8"><meta name="viewport"
       content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#f8f5ee"><title>Studyroom — your study
+    <title>Studyroom — your study
       space</title>
-    <script>try { const saved = JSON.parse(localStorage.getItem('studyroom.v1') || '{}').settings || {}; document.documentElement.dataset.theme = saved.theme || 'midnight'; document.documentElement.dataset.mode = saved.dark ? 'dark' : 'light'; } catch { document.documentElement.dataset.theme = 'midnight'; document.documentElement.dataset.mode = 'light'; }</script>
+    <script>try { const saved = JSON.parse(localStorage.getItem('studyroom.v1') || '{}').settings || {}; const dark = saved.dark === undefined ? window.matchMedia('(prefers-color-scheme: dark)').matches : !!saved.dark; document.documentElement.dataset.theme = dark ? 'dark' : 'light'; const palette = saved.theme === 'sunset' ? 'warm-beige-chocolate' : saved.theme; document.documentElement.dataset.palette = palette || 'midnight'; } catch { document.documentElement.dataset.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.dataset.palette = 'midnight'; }</script>
     <link rel="preconnect" href="https://fonts.googleapis.com"><link
       rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link

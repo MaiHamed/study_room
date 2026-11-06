@@ -2,7 +2,7 @@
 .profile-photo-block { display: flex; align-items: center; gap: 20px; padding-bottom: 28px; border-bottom: 1px solid var(--line); }
 .profile-photo-block b { font-size: 14px; }
 .profile-photo-block .page-sub { margin: 6px 0 12px; font-size: 12px; }
-.profile-photo { flex: 0 0 84px; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: #e6def2; color: var(--accent); font-size: 30px; font-weight: 700; }
+.profile-photo { flex: 0 0 84px; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; overflow: hidden; background: var(--background); color: var(--accent); font-size: 30px; font-weight: 700; }
 .profile-photo img { width: 100%; height: 100%; object-fit: cover; }
 .profile-photo-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .profile-photo-actions label { cursor: pointer; }
