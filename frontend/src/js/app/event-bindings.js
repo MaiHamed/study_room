@@ -33,8 +33,27 @@
     }
   });
   document.addEventListener("click", (e) => {
+    const profileWrap = e.target.closest(".profile-menu-wrap"),
+      profileMenu = $("#profile-menu"), profileAvatar = $(".avatar");
+    if (!profileWrap && profileMenu?.classList.contains("is-open")) {
+      profileMenu.classList.remove("is-open");
+      profileAvatar?.setAttribute("aria-expanded", "false");
+      setTimeout(() => { if (!profileMenu.classList.contains("is-open")) profileMenu.hidden = true; }, 160);
+    }
+    if (e.target.closest(".avatar")) {
+      e.preventDefault();
+      const open = !profileMenu.classList.contains("is-open");
+      profileMenu.hidden = false;
+      requestAnimationFrame(() => profileMenu.classList.toggle("is-open", open));
+      profileAvatar.setAttribute("aria-expanded", String(open));
+      if (!open) setTimeout(() => { if (!profileMenu.classList.contains("is-open")) profileMenu.hidden = true; }, 160);
+      return;
+    }
     let pageBtn = e.target.closest("[data-page]");
     if (pageBtn) {
+      if (profileMenu?.classList.contains("is-open")) profileMenu.classList.remove("is-open");
+      profileAvatar?.setAttribute("aria-expanded", "false");
+      if (profileMenu) setTimeout(() => { if (!profileMenu.classList.contains("is-open")) profileMenu.hidden = true; }, 160);
       page = pageBtn.dataset.page;
       profilePhotoDraft = null;
       modal = null;
@@ -51,6 +70,9 @@
     }
     let el = e.target.closest("[data-action]");
     if (el) {
+      if (profileMenu?.classList.contains("is-open")) profileMenu.classList.remove("is-open");
+      profileAvatar?.setAttribute("aria-expanded", "false");
+      if (profileMenu) setTimeout(() => { if (!profileMenu.classList.contains("is-open")) profileMenu.hidden = true; }, 160);
       handleAction(el, e);
       return;
     }
@@ -61,6 +83,14 @@
     }
     if (e.target.closest("#mobile-menu"))
       $("#nav").closest(".sidebar").classList.toggle("open");
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") return;
+    const menu = $("#profile-menu");
+    if (!menu || menu.hidden) return;
+    menu.classList.remove("is-open");
+    $(".avatar")?.setAttribute("aria-expanded", "false");
+    setTimeout(() => { if (!menu.classList.contains("is-open")) menu.hidden = true; }, 160);
   });
   document.addEventListener("click", (e) => {
     const modeButton = e.target.closest("[data-mode-choice]"),

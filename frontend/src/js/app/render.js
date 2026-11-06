@@ -2,7 +2,9 @@
   function render() {
     shell();
     let out =
-      page === "dashboard"
+      page === "account"
+        ? cloudPage()
+        : page === "dashboard"
         ? dashboard()
         : page === "profile"
           ? profilePage()
@@ -30,6 +32,8 @@
                                 ? mistakes()
                                 : page === "statistics"
                                   ? statistics()
+                                    : page === "admin"
+                                      ? cloudAdminPage()
                                   : page === "settings"
                                     ? settings()
                                     : page === "run-exam"
@@ -40,11 +44,14 @@
                                           ? studyCards()
                                           : settings();
     $("#view").innerHTML = out;
+    renderLucideIcons($("#view"));
+    renderLucideIcons($("#profile-menu"));
     $("#modal-root").innerHTML = modal || "";
     refreshCustomSelects($("#view"));
     refreshCustomSelects($("#modal-root"));
     renderMath($("#view"));
     renderMath($("#modal-root"));
+    if (typeof cloudSetStatus === "function") cloudSetStatus(cloudStatus);
     if (page === "create-exam") refreshExamBuilder();
   }
   function notify(s) {

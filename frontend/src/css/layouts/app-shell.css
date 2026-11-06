@@ -199,6 +199,15 @@ nav button .nav-icon {
 .avatar img { width: 100%; height: 100%; object-fit: cover }
 .avatar svg { width: 19px; height: 19px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round }
 
+.profile-menu-wrap { position: relative; display: flex; align-items: center; }
+.profile-menu { position: absolute; z-index: 20; top: calc(100% + 12px); right: 0; width: 190px; padding: 6px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); box-shadow: var(--shadow); opacity: 0; transform: translateY(-6px) scale(.98); transform-origin: top right; transition: opacity .16s ease, transform .16s ease; }
+.profile-menu[hidden] { display: none; }
+.profile-menu.is-open { opacity: 1; transform: translateY(0) scale(1); }
+.profile-menu button { width: 100%; display: flex; align-items: center; gap: 11px; padding: 10px 11px; border: 0; border-radius: 9px; background: transparent; color: var(--ink); text-align: left; font: inherit; font-size: 13px; cursor: pointer; transition: background .16s ease, color .16s ease; }
+.profile-menu button:hover, .profile-menu button:focus-visible { outline: none; background: var(--background); color: var(--accent); }
+.profile-menu button svg { width: 16px; height: 16px; }
+@media (prefers-reduced-motion: reduce) { .profile-menu, .profile-menu button { transition: none; } }
+
 .view {
     max-width: 1200px;
     padding: 42px 5vw 70px;

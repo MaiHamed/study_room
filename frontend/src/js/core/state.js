@@ -23,7 +23,7 @@
   } catch {
     db = blank();
   }
-  let page = "dashboard",
+  let page = "account",
     modal = null,
     profilePhotoDraft = null,
     selectedQuestionIds = new Set(),

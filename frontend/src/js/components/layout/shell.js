@@ -27,14 +27,16 @@
         ? `My Subjects · ${subj?.name || ""} · ${topicViewName}`
         : page === "subject-detail"
           ? `My Subjects · ${subj?.name || ""}`
+          : page === "account"
+            ? "Account & Sync"
           : page === "profile"
             ? "Edit Profile"
             : nav.find((n) => n[0] === page)?.[2] || "Study session";
     const avatar = $(".avatar");
     avatar.innerHTML = avatarMarkup();
-    avatar.title = db.profile?.firstName
-      ? `${db.profile.firstName}’s profile`
-      : "Edit profile";
+    avatar.setAttribute("aria-label", db.profile?.firstName
+      ? `Open ${db.profile.firstName}’s profile menu`
+      : "Open profile menu");
     applyTheme();
   }
   function avatarMarkup(profile = db.profile || {}) {
@@ -54,7 +56,7 @@
         "Edit profile",
         "Update the details and photo saved with this Studyroom browser.",
       ) +
-      `<form id="profile-form" class="panel profile-panel"><div class="profile-photo-block"><div class="profile-photo" id="profile-photo-preview">${initials}</div><div><b>Profile picture</b><p class="page-sub">Choose a square or portrait photo. Images up to 1.5 MB are supported.</p><div class="profile-photo-actions"><label class="btn" for="profile-photo">Upload photo</label><input class="sr-only" id="profile-photo" type="file" accept="image/*"><button class="btn" type="button" data-action="profile-remove-photo" ${p.photo ? "" : "disabled"}>Remove photo</button></div></div></div><div class="form-grid profile-fields"><label class="form-field">First name<input required maxlength="60" autocomplete="given-name" class="field" name="firstName" value="${esc(p.firstName || "")}"></label><label class="form-field">Last name<input maxlength="60" autocomplete="family-name" class="field" name="lastName" value="${esc(p.lastName || "")}"></label><label class="form-field full">Email address<input type="email" maxlength="254" autocomplete="email" class="field" name="email" value="${esc(p.email || "")}"></label></div><div class="profile-actions"><button class="btn" type="button" data-action="profile-cancel">Cancel</button><button class="btn primary" type="submit">Save Changes</button></div></form>`
+      `<form id="profile-form" class="panel profile-panel"><div class="profile-photo-block"><div class="profile-photo" id="profile-photo-preview">${initials}</div><div><b>Profile picture</b><p class="page-sub">Choose a square or portrait photo. Images up to 1.5 MB are supported.</p><div class="profile-photo-actions"><label class="btn" for="profile-photo">Upload photo</label><input class="sr-only" id="profile-photo" type="file" accept="image/*"><button class="btn" type="button" data-action="profile-remove-photo" ${p.photo ? "" : "disabled"}>Remove photo</button></div></div></div><div class="form-grid profile-fields"><label class="form-field">First name<input required maxlength="60" autocomplete="given-name" class="field" name="firstName" value="${esc(p.firstName || "")}"></label><label class="form-field">Last name<input maxlength="60" autocomplete="family-name" class="field" name="lastName" value="${esc(p.lastName || "")}"></label><label class="form-field full">Email address<input type="email" maxlength="254" autocomplete="email" class="field" name="email" value="${esc(p.email || "")}"></label></div><div class="profile-actions"><button class="btn" type="button" data-action="profile-cancel">Cancel</button><button class="btn primary" type="submit">Save Changes</button></div>${cloudProfileSettings()}</form>`
     );
   }
   function pageHead(eyebrow, title, sub, buttons = "") {

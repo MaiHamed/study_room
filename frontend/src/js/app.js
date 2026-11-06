@@ -13,4 +13,11 @@ setInterval(() => {
   if (!remain) submitAttempt(currentAttempt());
 }, 1000);
 
-render();
+initializeCloudSync().finally(() => {
+  render();
+  const query = new URLSearchParams(location.search);
+  if (query.get("authSuccess") === "google") {
+    history.replaceState({}, "", location.pathname);
+    notify("Signed in with Google. Welcome to Studyroom!");
+  }
+});

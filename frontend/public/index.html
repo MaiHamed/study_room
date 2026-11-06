@@ -1,67 +1,79 @@
 <!doctype html>
 <html lang="en">
   <head>
-    <meta charset="utf-8"><meta name="viewport"
-      content="width=device-width, initial-scale=1">
-    <title>Studyroom — your study
-      space</title>
-    <script>try { const saved = JSON.parse(localStorage.getItem('studyroom.v1') || '{}').settings || {}; const dark = saved.dark === undefined ? window.matchMedia('(prefers-color-scheme: dark)').matches : !!saved.dark; document.documentElement.dataset.theme = dark ? 'dark' : 'light'; const palette = saved.theme === 'sunset' ? 'warm-beige-chocolate' : saved.theme; document.documentElement.dataset.palette = palette || 'midnight'; } catch { document.documentElement.dataset.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.dataset.palette = 'midnight'; }</script>
-    <link rel="preconnect" href="https://fonts.googleapis.com"><link
-      rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap"
-      rel="stylesheet">
-    <link rel="stylesheet" href="../src/css/styles.css">
-    <script defer src="https://unpkg.com/lucide@1.69.0/dist/umd/lucide.js"></script>
-    <script>window.MathJax = { tex: { inlineMath: [['\\(', '\\)']], displayMath: [['\\[', '\\]']], processEscapes: true }, options: { skipHtmlTags: ['script','noscript','style','textarea','pre','code'] }, chtml: { scale: 1 } };</script>
-    <script defer src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7f6f2">
+    <meta name="description" content="Study smarter with one calm space for subjects, question practice, flashcards, exam prep, and progress.">
+    <title>Studyroom — Study smarter. Remember longer.</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="../src/css/pages/landing.css">
+    <script>try{document.documentElement.dataset.theme=localStorage.getItem('studyroom.landing.theme')||'light'}catch{document.documentElement.dataset.theme='light'}</script>
   </head>
-  <body><div class="app-shell"><aside class="sidebar">
-        <a class="brand" href="#dashboard"><span class="brand-mark">✳</span><span>studyroom<small>YOUR PERSONAL STUDY
-              SPACE</small></span></a>
-        <div class="side-label">WORKSPACE</div><nav id="nav"></nav>
-        <div class="side-bottom"><div class="streak"><span><i data-lucide="flame"></i></span><div><b
-                id="side-streak">0 day streak</b><small>Little by little, every
-                day.</small></div></div><button class="theme-btn"
-            id="theme-toggle"><i data-lucide="sun-moon" aria-hidden="true"></i><span>Switch appearance</span></button></div>
-      </aside><main class="main"><header class="topbar"><button id="mobile-menu"
-            class="icon-btn mobile-only" aria-label="Open menu"><i data-lucide="menu" aria-hidden="true"></i></button><div
-            class="crumb" id="crumb">Your overview</div><div
-            class="top-actions"><div class="today" id="today"></div><button
-              class="avatar"
-              data-page="profile" aria-label="Edit profile" title="Edit profile"></button></div></header><section
-          id="view" class="view"></section></main></div><div id="toast"
-      class="toast" role="status"></div><div id="modal-root"></div>
-    <script src="../src/js/core/state.js"></script>
-    <script src="../src/js/core/helpers.js"></script>
-    <script src="../src/js/features/themes/config.js"></script>
-    <script src="../src/js/components/layout/shell.js"></script>
-    <script src="../src/js/pages/dashboard.js"></script>
-    <script src="../src/js/pages/subjects.js"></script>
-    <script src="../src/js/pages/questions.js"></script>
-    <script src="../src/js/features/smart-import/parser.js"></script>
-    <script src="../src/js/pages/smart-import.js"></script>
-    <script src="../src/js/pages/exam-creation.js"></script>
-    <script src="../src/js/pages/exam-history.js"></script>
-    <script src="../src/js/pages/study-tools.js"></script>
-    <script src="../src/js/pages/statistics.js"></script>
-    <script src="../src/js/pages/settings.js"></script>
-    <script src="../src/js/components/common/selects.js"></script>
-    <script src="../src/js/app/render.js"></script>
-    <script src="../src/js/components/common/dialogs.js"></script>
-    <script src="../src/js/features/questions/forms.js"></script>
-    <script src="../src/js/features/exams/session.js"></script>
-    <script src="../src/js/services/backup.js"></script>
-    <script src="../src/js/features/smart-import/actions.js"></script>
-    <script src="../src/js/components/common/dialog-actions.js"></script>
-    <script src="../src/js/features/content/actions.js"></script>
-    <script src="../src/js/services/data-actions.js"></script>
-    <script src="../src/js/features/exams/actions.js"></script>
-    <script src="../src/js/features/study/actions.js"></script>
-    <script src="../src/js/app/actions.js"></script>
-    <script src="../src/js/app/event-bindings.js"></script>
-    <script src="../src/js/features/exams/builder.js"></script>
-    <script src="../src/js/components/common/subject-picker.js"></script>
-    <script src="../src/js/app/events.js"></script>
-    <script src="../src/js/app.js"></script>
-  </body></html>
+  <body>
+    <header class="site-header" id="top">
+      <nav class="nav-wrap" aria-label="Main navigation">
+        <a class="wordmark" href="#top" aria-label="Studyroom home"><span class="brand-icon" aria-hidden="true">✳</span><span>studyroom</span></a>
+        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-expanded="false" aria-controls="primary-nav" aria-label="Open navigation"><span></span><span></span></button>
+        <div class="nav-links" id="primary-nav">
+          <a class="nav-link active" href="#top">Home</a><a class="nav-link" href="#features">Features</a><a class="nav-link" href="#how">How it works</a><a class="nav-link" href="#about">About</a>
+          <div class="nav-actions"><button class="theme-toggle" id="theme-toggle" aria-label="Switch color theme" title="Switch color theme"><span aria-hidden="true">◐</span></button><button class="nav-login" data-auth="login">Log in</button><button class="button button-small" data-auth="signup">Get started <span aria-hidden="true">↗</span></button></div>
+        </div>
+      </nav>
+    </header>
+
+    <main>
+      <section class="hero section-shell" aria-labelledby="hero-title">
+        <div class="hero-copy reveal">
+          <div class="eyebrow"><span class="eyebrow-dot"></span> YOUR PERSONAL STUDY SPACE</div>
+          <h1 id="hero-title">Study smarter.<br><em>Remember longer.</em><br>Achieve more.</h1>
+          <p class="hero-lede">Your personal study space to organize subjects, master difficult topics, practice with questions, and turn revision into a habit.</p>
+          <div class="hero-actions"><button class="button" data-auth="signup">Get started — it’s free <span aria-hidden="true">↗</span></button><a class="button button-quiet" href="#showcase"><span class="play-icon" aria-hidden="true">▶</span> Explore Studyroom</a></div>
+          <div class="trust-note"><div class="trust-avatars" aria-hidden="true"><span>✳</span><span>✓</span><span>↗</span></div><span>Your study journey, organized in one place.</span></div>
+        </div>
+        <div class="hero-art reveal" aria-label="Preview of the Studyroom study workspace">
+          <div class="hero-orbit orbit-one"></div><div class="hero-orbit orbit-two"></div><div class="hero-spark spark-a">✦</div><div class="hero-spark spark-b">✳</div>
+          <article class="float-card subject-float"><div class="mini-label"><span class="mini-icon lilac">▦</span><span>YOUR SUBJECTS</span><span class="dots">···</span></div><h3>Biology</h3><div class="topic-row"><span class="topic-mark mint">01</span><span>Cell structure</span><span class="topic-check">✓</span></div><div class="topic-row"><span class="topic-mark peach">02</span><span>Genetics</span><span class="topic-arrow">↗</span></div><div class="topic-row"><span class="topic-mark blue">03</span><span>Human physiology</span><span class="topic-arrow">↗</span></div></article>
+          <article class="float-card question-float"><div class="question-top"><span class="question-tag">QUICK PRACTICE</span><span class="question-count">04 / 12</span></div><p>Which organelle is known as the powerhouse of the cell?</p><div class="answer-option selected"><span>A</span> Mitochondrion <b>✓</b></div><div class="answer-option"><span>B</span> Ribosome</div><div class="answer-option"><span>C</span> Golgi apparatus</div><div class="question-success">Exactly right <span>+1</span></div></article>
+          <button class="float-card flash-float" id="hero-flashcard" aria-label="Flip sample flashcard"><span class="flash-sheen"></span><span class="flash-label">TAP TO REVEAL</span><span class="flash-question">What carries genetic<br>instructions in a cell?</span><span class="flash-answer">DNA carries the instructions<br>for building and running cells.</span><span class="flash-foot"><i>✳</i> Biology · Genetics <span>↻</span></span></button>
+          <article class="float-card streak-float"><span class="streak-flame">✦</span><div><small>YOUR STREAK</small><b>7 days</b><span>Little by little.</span></div><div class="streak-spark">↗</div></article>
+          <article class="float-card progress-float"><div><small>EXAM READINESS</small><b>You're on track</b></div><svg viewBox="0 0 100 34" role="img" aria-label="Progress trending upward"><path d="M2 29 C14 27,18 19,30 22 S46 25,55 14 S70 18,78 9 S91 11,98 3" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="M2 29 C14 27,18 19,30 22 S46 25,55 14 S70 18,78 9 S91 11,98 3 V34 H2Z" fill="currentColor" opacity=".09"/></svg></article>
+          <div class="reminder-float"><span>◷</span><div><b>A little review?</b><small>3 cards are ready</small></div><span class="reminder-go">→</span></div>
+        </div>
+        <div class="hero-bottom"><span>MADE FOR THE WAY YOU LEARN</span><div><span>ORGANIZE</span><i>·</i><span>PRACTICE</span><i>·</i><span>REVISE</span><i>·</i><span>GROW</span></div><a href="#features" aria-label="Scroll to features">↓</a></div>
+      </section>
+
+      <section class="features-section section-pad" id="features">
+        <div class="section-heading reveal"><div class="eyebrow">A BETTER WAY TO STUDY</div><h2>Everything you need to<br><em>make studying easier.</em></h2><p>Less time organizing. More time understanding.</p></div>
+        <div class="feature-grid section-shell">
+          <article class="feature-card feature-lilac reveal"><div class="feature-top"><span class="feature-icon">▦</span><span class="feature-number">01</span></div><h3>Subject organization</h3><p>Keep subjects, topics, and learning materials together in one calm, easy-to-find space.</p><div class="feature-visual subject-visual"><span class="visual-pill"><i></i> Biology</span><span class="visual-pill"><i></i> Chemistry</span><span class="visual-pill muted-pill">+ Add subject</span></div></article>
+          <article class="feature-card feature-peach reveal"><div class="feature-top"><span class="feature-icon">◉</span><span class="feature-number">02</span></div><h3>Smart question practice</h3><p>Practice multiple-choice, true/false, and short-answer questions. Learn from every mistake.</p><div class="feature-visual practice-visual"><span class="practice-check">✓</span><span>Answer, learn, try again.</span><b>01 / 10</b></div></article>
+          <article class="feature-card feature-mint reveal"><div class="feature-top"><span class="feature-icon">▱</span><span class="feature-number">03</span></div><h3>Flashcards & revision</h3><p>Turn important ideas into quick reviews, and build a revision rhythm that sticks.</p><div class="feature-visual cards-visual"><span>Cell membrane</span><i>↔</i><span class="card-back">Controls what enters</span></div></article>
+          <article class="feature-card feature-blue reveal"><div class="feature-top"><span class="feature-icon">▤</span><span class="feature-number">04</span></div><h3>Exam preparation</h3><p>Build custom practice exams, see where you stand, and review your results topic by topic.</p><div class="feature-visual exam-visual"><div class="exam-ring"><b>82</b><small>%</small></div><span><b>Looking good</b><small>Keep your momentum</small></span></div></article>
+          <article class="feature-card feature-yellow reveal"><div class="feature-top"><span class="feature-icon">⌁</span><span class="feature-number">05</span></div><h3>Progress that makes sense</h3><p>See your study streak, results, and the topics that could use a little more attention.</p><div class="feature-visual progress-visual"><span style="height:24%"></span><span style="height:45%"></span><span style="height:38%"></span><span style="height:68%"></span><span style="height:54%"></span><span style="height:89%"></span><span style="height:74%"></span><b>↑ 18% this month</b></div></article>
+          <article class="feature-card feature-ink reveal"><div class="feature-top"><span class="feature-icon">✳</span><span class="feature-number">06</span></div><h3>Your personal study space</h3><p>Your materials, routines, and progress come together in one space that feels like yours.</p><div class="feature-visual space-visual"><span class="space-star">✳</span><span>One space.<br><b>Your way.</b></span><span class="space-orbit"></span></div></article>
+        </div>
+      </section>
+
+      <section class="showcase-section section-pad" id="showcase">
+        <div class="showcase-layout section-shell"><div class="showcase-copy reveal"><div class="eyebrow">A LITTLE LOOK INSIDE</div><h2>One space.<br><em>So many ways to grow.</em></h2><p>Move from organizing to practice to progress without losing your place.</p><div class="showcase-tabs" role="tablist" aria-label="Studyroom feature preview"><button role="tab" aria-selected="true" class="showcase-tab active" data-demo="organize"><span>01</span> Organize</button><button role="tab" aria-selected="false" class="showcase-tab" data-demo="practice"><span>02</span> Practice</button><button role="tab" aria-selected="false" class="showcase-tab" data-demo="revise"><span>03</span> Revise</button><button role="tab" aria-selected="false" class="showcase-tab" data-demo="progress"><span>04</span> Track progress</button></div><button class="text-link" data-auth="signup">Make this your space <span>↗</span></button></div><div class="demo-window reveal"><div class="demo-chrome"><div class="chrome-dots"><i></i><i></i><i></i></div><span>studyroom <b>·</b> your workspace</span><span class="demo-user">M</span></div><div class="demo-content" id="demo-content" role="tabpanel" aria-live="polite"></div></div></div>
+      </section>
+
+      <section class="how-section section-pad" id="how"><div class="section-heading reveal"><div class="eyebrow">SIMPLE BY DESIGN</div><h2>Your study routine,<br><em>simplified.</em></h2><p>Start with what you’re learning. We’ll help you keep the momentum.</p></div><div class="steps section-shell"><article class="step-card reveal"><span class="step-index">01</span><span class="step-icon lilac">✳</span><h3>Create your space</h3><p>Make an account and give your study journey a home.</p><span class="step-connector"></span></article><article class="step-card reveal"><span class="step-index">02</span><span class="step-icon peach">▦</span><h3>Add subjects & topics</h3><p>Bring your classes and the ideas inside them together.</p><span class="step-connector"></span></article><article class="step-card reveal"><span class="step-index">03</span><span class="step-icon mint">↻</span><h3>Practice & revise</h3><p>Test your understanding, review cards, learn from mistakes.</p><span class="step-connector"></span></article><article class="step-card reveal"><span class="step-index">04</span><span class="step-icon blue">↗</span><h3>Track & improve</h3><p>Notice your progress and choose your next small step.</p></article></div></section>
+
+      <section class="about-section section-pad" id="about"><div class="about-card section-shell reveal"><div class="about-decoration" aria-hidden="true"><span>✳</span><i></i><b></b></div><div class="about-copy"><div class="eyebrow">A SPACE THAT WORKS WITH YOU</div><h2>Make room for<br><em>meaningful progress.</em></h2><p>Studying can feel like a lot to hold in your head. Studyroom brings your materials and your next steps into view, so you can spend less energy keeping track and more energy learning.</p><div class="benefit-list"><span><i>✓</i> Everything organized in one workspace</span><span><i>✓</i> Practice that helps ideas stick</span><span><i>✓</i> A clear view of your progress</span><span><i>✓</i> Your study materials stay yours</span></div><button class="button button-dark" data-auth="signup">Find your rhythm <span>↗</span></button></div></div></section>
+
+      <section class="final-cta section-pad"><div class="cta-deco cta-deco-one">✳</div><div class="cta-deco cta-deco-two">✦</div><div class="cta-inner reveal"><div class="eyebrow">MAKE YOUR NEXT SESSION COUNT</div><h2>Your next study session<br><em>starts here.</em></h2><p>Bring your subjects, questions, flashcards, and progress together.</p><div class="hero-actions"><button class="button button-light" data-auth="signup">Create your free account <span>↗</span></button><button class="button cta-login" data-auth="login">Log in</button></div><small>No complicated setup. Just a better place to begin.</small></div></section>
+    </main>
+
+    <footer class="site-footer"><div class="footer-main section-shell"><div class="footer-brand"><a class="wordmark" href="#top"><span class="brand-icon">✳</span><span>studyroom</span></a><p>A little more clarity for every study session.</p></div><div class="footer-col"><b>Explore</b><a href="#features">Features</a><a href="#showcase">Product tour</a><a href="#how">How it works</a><a href="#about">About Studyroom</a></div><div class="footer-col"><b>Your account</b><button data-auth="login">Log in</button><button data-auth="signup">Create account</button><a href="/public/app.html">Open Studyroom</a></div><div class="footer-col"><b>Say hello</b><a href="mailto:hello@studyroom.app">Contact</a><button data-legal="privacy">Privacy</button><button data-legal="terms">Terms</button></div></div><div class="footer-bottom section-shell"><span>© <span id="copyright-year"></span> Studyroom. Made for curious minds.</span><button id="back-to-top">Back to top ↑</button></div></footer>
+
+    <dialog class="auth-dialog" id="auth-dialog" aria-labelledby="auth-title"><button class="dialog-close" id="auth-close" aria-label="Close sign in">×</button><div class="auth-brand"><span class="brand-icon">✳</span><span>studyroom</span></div><div class="auth-eyebrow" id="auth-eyebrow">WELCOME BACK</div><h2 id="auth-title">Make room to grow.</h2><p id="auth-subtitle">Sign in to pick up where you left off.</p><div class="auth-tabs" role="tablist"><button class="auth-tab active" data-auth-tab="login" role="tab" aria-selected="true">Log in</button><button class="auth-tab" data-auth-tab="signup" role="tab" aria-selected="false">Create account</button></div><div class="auth-error" id="auth-message" role="status" aria-live="polite"></div><button class="google-button" id="google-auth"><svg class="google-icon" aria-hidden="true" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.27-4.74 3.27-8.1z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.65l-3.57-2.77c-.99.66-2.25 1.06-3.71 1.06-2.85 0-5.26-1.92-6.12-4.5H2.2v2.84A11 11 0 0 0 12 23z"/><path fill="#FBBC05" d="M5.88 13.08a6.6 6.6 0 0 1 0-4.16V6.08H2.2a11 11 0 0 0 0 9.84z"/><path fill="#EA4335" d="M12 4.42c1.62 0 3.07.56 4.21 1.64l3.15-3.15A10.55 10.55 0 0 0 12 0 11 11 0 0 0 2.2 6.08l3.68 2.84c.86-2.58 3.27-4.5 6.12-4.5z"/></svg><span>Continue with Google</span></button><div class="auth-divider"><span>or continue with email</span></div><form id="auth-form" novalidate><div class="name-fields" id="name-fields" hidden><label>First name<input name="firstName" autocomplete="given-name" maxlength="60"></label><label>Last name<input name="lastName" autocomplete="family-name" maxlength="60"></label></div><label>Email address<input type="email" name="email" autocomplete="email" required maxlength="254"></label><label>Password<span class="password-wrap"><input type="password" name="password" autocomplete="current-password" required maxlength="128"><button type="button" class="show-password" aria-label="Show password">Show</button></span></label><label class="confirm-field" id="confirm-field" hidden>Confirm password<input type="password" name="confirmPassword" autocomplete="new-password"></label><div class="login-options" id="login-options"><label class="remember-check"><input type="checkbox" name="rememberMe"> Remember me</label><button type="button" class="forgot-link" id="forgot-password">Forgot password?</button></div><label class="terms-check" id="terms-check" hidden><input type="checkbox" name="agreeTerms"><span>I agree to the <button type="button" data-legal="terms">Terms</button> and <button type="button" data-legal="privacy">Privacy Policy</button>.</span></label><button class="button auth-submit" id="auth-submit" type="submit">Sign in <span>↗</span></button></form><p class="auth-switch" id="auth-switch">New to Studyroom? <button data-auth-tab="signup">Create an account</button></p></dialog>
+    <dialog class="legal-dialog" id="legal-dialog"><button class="dialog-close" data-close-legal aria-label="Close">×</button><div class="eyebrow" id="legal-eyebrow">STUDYROOM</div><h2 id="legal-title">Privacy</h2><div class="legal-copy" id="legal-copy"></div><button class="button" data-close-legal>Done</button></dialog>
+    <div class="site-toast" id="site-toast" role="status" aria-live="polite"></div>
+    <script src="/public/api-config.js?v=20261106-auth-api-4"></script>
+    <script src="../src/js/pages/landing.js?v=20261106-auth-api-7"></script>
+  </body>
+</html>

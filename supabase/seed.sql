@@ -1,2 +1,0 @@
--- Intentionally contains no demo accounts or learner data.
--- Run `supabase db reset` to recreate the schema from migrations.

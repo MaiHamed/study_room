@@ -63,7 +63,11 @@
   }
   window.addEventListener("load", () => renderMath($("#view")));
   const uid = () => Math.random().toString(36).slice(2, 10),
-    save = () => localStorage.setItem(KEY, JSON.stringify(db)),
+    save = () => {
+      if (typeof trackCloudLocalChanges === "function") trackCloudLocalChanges();
+      localStorage.setItem(KEY, JSON.stringify(db));
+      if (typeof queueCloudSave === "function") queueCloudSave();
+    },
     today = () => new Date().toISOString().slice(0, 10),
     fmtDate = (s) =>
       new Date(s).toLocaleDateString(undefined, {
