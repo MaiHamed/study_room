@@ -16,8 +16,15 @@ function errorHandler(error, req, res, _next) {
     if (error.details !== undefined) body.details = error.details;
     return res.status(error.status).json({ error: body });
   }
-  if (process.env.NODE_ENV !== "production") console.error(error);
-  req.log?.error?.({ error: error.message, path: req.path }, "unhandled API error");
+  const logDetails = {
+    name: error?.name || "Error",
+    code: error?.code || null,
+    message: error?.message || "Unknown API error",
+    method: req.method,
+    path: req.path,
+  };
+  if (req.log?.error) req.log.error(logDetails, "unhandled API error");
+  else console.error("Studyroom unhandled API error", logDetails);
   return res.status(500).json({ error: { code: "INTERNAL_ERROR", message: "Something went wrong." } });
 }
 
