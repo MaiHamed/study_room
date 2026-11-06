@@ -30,7 +30,7 @@
         (t) =>
           `<option value="${esc(t)}" ${t === previous ? "selected" : ""}>${esc(t)}</option>`,
       )
-      .join("")}`;
+      .join("")}<option value="__add_topic__">＋ Add topic</option>`;
     if (
       !topicList(db.subjects.find((s) => s.id === subjectId)).includes(previous)
     )

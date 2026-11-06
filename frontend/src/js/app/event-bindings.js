@@ -102,7 +102,26 @@
     }
     if (e.target.matches("#modal-form [name=subjectId]"))
       updateMaterialTopics(e.target.form, e.target.value);
+    if (e.target.matches("#import-subject") && e.target.value === "__add_subject__") {
+      showModal("Add a subject", subjectForm());
+      $("#modal-form").dataset.importSubject = "true";
+      e.target.value = importDraft.subjectId || "";
+      return;
+    }
     if (e.target.matches("#import-subject")) updateImportTopics(e.target.value);
+    if (e.target.matches("#import-topic") && e.target.value === "__add_topic__") {
+      let subjectId = $("#import-subject")?.value || "";
+      if (!subjectId) {
+        notify("Choose a subject before adding a topic.");
+        e.target.value = "";
+        return;
+      }
+      showModal("Add a topic", topicForm());
+      $("#modal-form").dataset.subject = subjectId;
+      $("#modal-form").dataset.importTopic = "true";
+      e.target.value = importDraft.topic || "";
+      return;
+    }
     if (e.target.matches(".exam-topic-choice")) updateExamAvailability();
     if (e.target.matches("input[name=manual]")) {
       examManualIds.clear();

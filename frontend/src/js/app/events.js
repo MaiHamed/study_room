@@ -46,6 +46,7 @@
       if (e.target.querySelector("[name=topicName]")) {
         let s = db.subjects.find((x) => x.id === e.target.dataset.subject),
           old = e.target.dataset.oldTopic || "",
+          fromImport = e.target.dataset.importTopic === "true",
           name = f.get("topicName").trim(),
           description = f.get("topicDescription").trim();
         if (!s) {
@@ -88,6 +89,11 @@
           s.topics.push(name);
           s.topicDescriptions = s.topicDescriptions || {};
           if (description) s.topicDescriptions[name] = description;
+          if (fromImport) {
+            importDraft.subjectId = s.id;
+            importDraft.topic = name;
+            persistImportDraft();
+          }
         }
       } else if (e.target.querySelector("[name=topics]")) {
         let value = {
@@ -119,7 +125,15 @@
             if (subject.topicDescriptions) delete subject.topicDescriptions[t];
           });
           Object.assign(subject, value);
-        } else db.subjects.push({ id: uid(), ...value });
+        } else {
+          let subject = { id: uid(), ...value };
+          db.subjects.push(subject);
+          if (e.target.dataset.importSubject === "true") {
+            importDraft.subjectId = subject.id;
+            importDraft.topic = "";
+            persistImportDraft();
+          }
+        }
       } else if (e.target.querySelector("[name=front]")) {
         let value = {
           front: f.get("front").trim(),
