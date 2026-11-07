@@ -276,7 +276,7 @@ nav button .nav-icon {
 }
 #nav button.active .nav-icon svg { animation: nav-icon-in .22s ease both }
 
-.brand-mark svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 1.8 }
+.brand-mark svg { width: 14px; height: 14px; stroke: currentColor; stroke-width: 2 }
 .streak > span svg { width: 17px; height: 17px; stroke: currentColor; stroke-width: 1.8 }
 .theme-btn { display: inline-flex; align-items: center; gap: 8px; transition: color .18s ease, transform .18s ease }
 .theme-btn:hover { color: var(--accent); transform: translateX(2px) }
