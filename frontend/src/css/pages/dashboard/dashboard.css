@@ -10,7 +10,7 @@
 }
 
 .welcome:after {
-    content: '✳';
+    content: none;
     font-size: 120px;
     color: color-mix(in srgb, var(--secondary) 6%, transparent);
     position: absolute;
