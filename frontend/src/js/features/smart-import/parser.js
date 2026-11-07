@@ -391,18 +391,23 @@
           q.type = "tf";
           q.correct = /^(true|t)$/i.test(clean);
         } else if (q.type === "mcq") {
-          let label = clean
-            .match(/^(?:option\s*)?([A-H])(?:[).:]|\b)/i)?.[1]
-            ?.toUpperCase();
+          const labeledAnswer = clean.match(
+              /^(?:\(\s*([A-H])\s*\)|option\s+([A-H])\b|([A-H])\s*[).:])(?:\s*(.*))?$/i,
+            ),
+            bareLabel = clean.match(/^([A-H])$/i)?.[1],
+            label = (labeledAnswer?.[1] || labeledAnswer?.[2] || labeledAnswer?.[3] || bareLabel)?.toUpperCase(),
+            answerText = labeledAnswer?.[4]?.trim(),
+            normalizedAnswer = (answerText || clean).toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
           let idx = label
             ? q.labels.indexOf(label)
-            : Number.isInteger(+clean)
-              ? +clean - 1
-              : -1;
+            : q.options.findIndex((option) =>
+                option.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim() === normalizedAnswer,
+              );
+          if (idx < 0 && Number.isInteger(+clean)) idx = +clean - 1;
           if (idx >= 0 && idx < q.options.length) q.correct = idx;
           else
             q.warnings.push(
-              "The answer key entry did not match an answer choice.",
+              `Answer “${clean}” does not match a listed answer choice. Select the intended choice or edit the options.`,
             );
         } else if (q.type === "tf") {
           if (/^(true|t)$/i.test(clean)) q.correct = true;
@@ -445,9 +450,10 @@
         );
       if (q.answerDeclarations?.length > 1) {
         const labels = q.answerDeclarations
-          .map((a) =>
-            a.match(/^(?:option\s*)?([A-H])(?:[).:]|\b)/i)?.[1]?.toUpperCase(),
-          )
+          .map((a) => {
+            const match = a.match(/^\(\s*([A-H])\s*\)|^option\s+([A-H])\b|^([A-H])\s*[).:]|^([A-H])$/i);
+            return (match?.[1] || match?.[2] || match?.[3] || match?.[4])?.toUpperCase();
+          })
           .filter(Boolean);
         if (new Set(labels).size > 1)
           q.warnings.push(

@@ -37,7 +37,6 @@
     avatar.setAttribute("aria-label", db.profile?.firstName
       ? `Open ${db.profile.firstName}’s profile menu`
       : "Open profile menu");
-    applyTheme();
   }
   function avatarMarkup(profile = db.profile || {}) {
     const name = (profile.firstName || "").trim();
