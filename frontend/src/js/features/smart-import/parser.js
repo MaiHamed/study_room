@@ -121,7 +121,9 @@
         /^\s*(?:[-*•]\s*)?(?:\(([A-H])\)|([A-H])\s*[).:-])\s*(.*?)\s*$/i,
       );
     for (let rawLine of lines) {
-      let line = rawLine.trim();
+      // Pasted Markdown often uses a trailing backslash as a hard line break.
+      // Remove it before matching options so it cannot join the next choice.
+      let line = rawLine.trim().replace(/\\+$/, "").trim();
       if (!line) {
         blankBefore = true;
         continue;
@@ -386,7 +388,8 @@
       const inline = q.inlineAnswer;
       const answer = inline || q.expectedAnswer || answerMap.get(q.number);
       if (answer) {
-        const clean = String(answer).trim().replace(/[.)]$/, "");
+        // Keep a closing parenthesis when it belongs to a label such as “(a)”.
+        const clean = String(answer).trim().replace(/\.$/, "");
         if (q.type === "short" && /^(true|false|t|f)$/i.test(clean)) {
           q.type = "tf";
           q.correct = /^(true|t)$/i.test(clean);
