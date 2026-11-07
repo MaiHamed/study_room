@@ -32,4 +32,5 @@
     db.settings.theme = palette;
     root.dataset.theme = dark ? "dark" : "light";
     root.dataset.palette = palette;
+    try { localStorage.setItem("studyroom.landing.theme", dark ? "dark" : "light"); } catch {}
   }

@@ -18,8 +18,12 @@
     const saved = JSON.parse(localStorage.getItem(KEY) || "{}");
     db = { ...blank(), ...saved };
     db.settings = { ...blank().settings, ...(saved.settings || {}) };
-    if (saved.settings?.dark === undefined)
-      db.settings.dark = !!window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+    if (saved.settings?.dark === undefined) {
+      const landingTheme = localStorage.getItem("studyroom.landing.theme");
+      db.settings.dark = landingTheme
+        ? landingTheme === "dark"
+        : !!window.matchMedia?.("(prefers-color-scheme: dark)")?.matches;
+    }
   } catch {
     db = blank();
   }

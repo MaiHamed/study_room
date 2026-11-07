@@ -309,7 +309,7 @@
         email: cloudAccount?.email || local.email || "",
         photo: local.photo || "",
       };
-      if (!localProfileNewer) db.settings = remote.profile.settings || db.settings;
+      if (!localProfileNewer) db.settings = { ...(db.settings || { theme: "midnight", dark: false }), ...(remote.profile.settings || {}) };
       if (!localProfileNewer) db.streak = remote.profile.streak || 0;
       if (!localProfileNewer) db.lastStudy = remote.profile.lastStudy || null;
       cloudSetSnapshot("profile", "profile", {
@@ -416,7 +416,9 @@
         if (new Date(remote.profile.updatedAt) > new Date(snapshot.updatedAt)) conflicts.push({ collection: "profile", id: "profile", row: remote.profile, local: current });
       } else {
         db.profile = { ...(db.profile || {}), firstName: data.firstName, lastName: data.lastName, email: cloudAccount.email, photo: db.profile?.photo || "" };
-        db.settings = data.settings;
+        // Older cloud profiles may have partial settings. Keep local defaults and
+        // preferences for fields the server has never stored.
+        db.settings = { ...(db.settings || { theme: "midnight", dark: false }), ...(data.settings || {}) };
         db.streak = data.streak;
         db.lastStudy = data.lastStudy;
         cloudSetSnapshot("profile", "profile", data, remote.profile.updatedAt);
@@ -457,7 +459,8 @@
         };
         if (!keepLocal) {
           db.profile = { ...(db.profile || {}), firstName: data.firstName, lastName: data.lastName, email: cloudAccount.email };
-          db.settings = data.settings; db.streak = data.streak; db.lastStudy = data.lastStudy;
+          db.settings = { ...(db.settings || { theme: "midnight", dark: false }), ...(data.settings || {}) };
+          db.streak = data.streak; db.lastStudy = data.lastStudy;
         }
         cloudSetSnapshot("profile", "profile", data, row.updatedAt);
         continue;

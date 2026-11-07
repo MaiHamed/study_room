@@ -151,7 +151,12 @@
     if (event.target.closest("#theme-toggle")) {
       const root = document.documentElement, theme = root.dataset.theme === "dark" ? "light" : "dark";
       root.dataset.theme = theme;
-      try { localStorage.setItem("studyroom.landing.theme", theme); } catch {}
+      try {
+        localStorage.setItem("studyroom.landing.theme", theme);
+        const db = JSON.parse(localStorage.getItem("studyroom.v1") || "{}");
+        db.settings = { theme: "midnight", ...(db.settings || {}), dark: theme === "dark" };
+        localStorage.setItem("studyroom.v1", JSON.stringify(db));
+      } catch {}
       return;
     }
     if (event.target.closest("#back-to-top")) { window.scrollTo({ top: 0, behavior: "smooth" }); return; }
