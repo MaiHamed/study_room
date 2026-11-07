@@ -8,7 +8,7 @@
   "scripts": {
     "start": "node backend/src/server.js",
     "dev": "node backend/src/server.js",
-    "test": "node --test backend/test/*.test.js",
+    "test": "node --test backend/test/*.test.js frontend/test/*.test.js",
     "test:api": "node --test backend/test/api.test.js",
     "create-admin": "node scripts/create-admin.js"
   },

@@ -5,7 +5,7 @@
         "YOUR LEARNING SPACES",
         "My subjects",
         "Choose a subject to explore its topics, materials, and progress.",
-        `<button class="btn primary" data-action="subject-add">＋ New subject</button>`,
+        `<button class="btn" data-action="subject-import"><i data-lucide="upload"></i> Import subject</button><button class="btn primary" data-action="subject-add">＋ New subject</button>`,
       ) +
       (db.subjects.length
         ? `<div class="grid subject-grid">${db.subjects
@@ -29,7 +29,7 @@
                       (db.reviews[q.id]?.wrong || 0) >
                     0,
                 ).length;
-              return `<article class="card subject-card subject-open" data-action="subject-open" data-id="${s.id}" style="--subject-accent:${esc(s.color || ["#8565b5", "#c08078", "#6486a5", "#bd9558"][i % 4])}"><div class="subject-art"><span>${esc(s.name.slice(0, 1).toUpperCase())}</span><div class="subject-card-actions"><button class="icon-btn" data-action="subject-edit" data-id="${s.id}" title="Edit subject">✎</button><button class="icon-btn" data-action="subject-delete" data-id="${s.id}" title="Delete subject">×</button></div></div><div class="subject-card-meta"><span>${topicList(s).length} topics</span><span>${qs.length} questions</span></div><h3>${esc(s.name)}</h3><p>${esc(s.description || "A space for your study materials.")}</p><div class="subject-progress"><div class="progress"><i style="width:${qs.length ? Math.round((studied / qs.length) * 100) : 0}%"></i></div><small>${qs.length ? Math.round((studied / qs.length) * 100) : 0}% questions practiced</small></div><div class="subject-foot"><span>${cards.length} flashcards</span><span>${avg === null ? "No exams" : `${avg}% exam average`}</span></div><button class="subject-open-link" data-action="subject-open" data-id="${s.id}">Open subject <span>→</span></button></article>`;
+              return `<article class="card subject-card subject-open" data-action="subject-open" data-id="${s.id}" style="--subject-accent:${esc(s.color || ["#8565b5", "#c08078", "#6486a5", "#bd9558"][i % 4])}"><div class="subject-art"><span>${esc(s.name.slice(0, 1).toUpperCase())}</span><div class="subject-card-actions"><button class="icon-btn" data-action="subject-export" data-id="${s.id}" title="Export subject" aria-label="Export ${esc(s.name)}"><i data-lucide="download"></i></button><button class="icon-btn" data-action="subject-edit" data-id="${s.id}" title="Edit subject">✎</button><button class="icon-btn" data-action="subject-delete" data-id="${s.id}" title="Delete subject">×</button></div></div><div class="subject-card-meta"><span>${topicList(s).length} topics</span><span>${qs.length} questions</span></div><h3>${esc(s.name)}</h3><p>${esc(s.description || "A space for your study materials.")}</p><div class="subject-progress"><div class="progress"><i style="width:${qs.length ? Math.round((studied / qs.length) * 100) : 0}%"></i></div><small>${qs.length ? Math.round((studied / qs.length) * 100) : 0}% questions practiced</small></div><div class="subject-foot"><span>${cards.length} flashcards</span><span>${avg === null ? "No exams" : `${avg}% exam average`}</span></div><button class="subject-open-link" data-action="subject-open" data-id="${s.id}">Open subject <span>→</span></button></article>`;
             })
             .join("")}</div>`
         : `<div class="panel empty"><div class="empty-icon">▦</div>No subjects yet. Add your first subject to organize study materials.</div>`)
