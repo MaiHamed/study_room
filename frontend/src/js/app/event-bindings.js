@@ -79,6 +79,7 @@
     if (e.target.closest("#theme-toggle")) {
       db.settings.dark = !db.settings.dark;
       save();
+      applyTheme();
       render();
     }
     if (e.target.closest("#mobile-menu"))
