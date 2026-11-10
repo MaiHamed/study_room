@@ -3,6 +3,9 @@
   <head>
     <meta charset="utf-8"><meta name="viewport"
       content="width=device-width, initial-scale=1">
+    <link rel="icon" type="image/svg+xml" href="/public/favicon.svg">
+    <link rel="alternate icon" type="image/x-icon" href="/public/favicon.ico">
+    <link rel="apple-touch-icon" sizes="180x180" href="/public/apple-touch-icon.png">
     <title>Studyroom — your study
       space</title>
     <script>try { const saved = JSON.parse(localStorage.getItem('studyroom.v1') || '{}').settings || {}; const landingTheme = localStorage.getItem('studyroom.landing.theme'); const dark = saved.dark === undefined ? (landingTheme ? landingTheme === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches) : !!saved.dark; document.documentElement.dataset.theme = dark ? 'dark' : 'light'; const palette = saved.theme === 'sunset' ? 'warm-beige-chocolate' : saved.theme; document.documentElement.dataset.palette = palette || 'midnight'; } catch { document.documentElement.dataset.theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'; document.documentElement.dataset.palette = 'midnight'; }</script>
