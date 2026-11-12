@@ -9,6 +9,10 @@
       );
       render();
     }
+    if (e.target.matches("#q-sort")) {
+      questionSort = e.target.value;
+      render();
+    }
     if (e.target.matches(".question-select")) {
       e.target.checked
         ? selectedQuestionIds.add(e.target.value)

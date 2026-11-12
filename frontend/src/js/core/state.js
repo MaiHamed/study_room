@@ -37,6 +37,7 @@
     examRun = null,
     flashRun = null,
     searchText = "",
+    questionSort = "default",
     filters = { type: "all", subject: "all", topic: "all" },
     toastTimer,
     subjectViewId = null,
